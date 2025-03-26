@@ -164,3 +164,61 @@ a {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
+
+/* Modify the existing presentation styles to avoid affecting our side-by-side implementation */
+/* Presentation overlay - keep for backward compatibility but won't affect our new implementation */
+.fixed.inset-0.bg-white.z-50 {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Add new styles for our side-by-side presentation mode */
+.presentation-panel {
+  position: relative;
+  animation: fadeIn 0.3s ease-in-out;
+  border-left: 1px solid #eaeaea;
+}
+
+/* Style for exit button in side-by-side mode */
+.presentation-exit-btn {
+  transition: all 0.2s ease;
+  transform: scale(1);
+  z-index: 50;
+}
+
+.presentation-exit-btn:hover {
+  transform: scale(1.05);
+}
+
+/* Ensure presentations are contained within their container */
+.presentation-content .spectacle-deck {
+  height: 100% !important;
+  width: 100% !important;
+  overflow: hidden;
+}
+
+/* Adjust font sizes for presentation content in side-by-side mode */
+.presentation-content .spectacle-deck h1 {
+  font-size: 2.5rem !important;
+  margin-bottom: 1rem;
+  color: #4f46e5;
+}
+
+.presentation-content .spectacle-deck h2 {
+  font-size: 2rem !important;
+  margin-bottom: 0.75rem;
+}
+
+.presentation-content .spectacle-deck p, 
+.presentation-content .spectacle-deck li {
+  font-size: 1.25rem !important;
+  line-height: 1.6;
+}
+
+/* Ensure slide content is properly centered */
+.presentation-content .spectacle-slide {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  max-width: 90%;
+  margin: 0 auto;
+}

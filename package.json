@@ -32,5 +32,8 @@
   },
   "resolutions": {
     "@langchain/core": "^0.3.38"
+  },
+  "dependencies": {
+    "spectacle": "^10.1.8"
   }
 }

@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Slideshow Presentation</title>
+    <style>
+        /* Reset and base styles */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+        
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: white;
+            overflow: hidden;
+        }
+        
+        /* Main container */
+        .presentation-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            width: 100%;
+            position: relative;
+        }
+        
+        /* PDF container */
+        .pdf-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            flex: 1;
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+            margin-top: -30px; /* Negative margin to shift content up */
+        }
+        
+        /* Canvas styling */
+        #pdf-canvas {
+            max-width: 100%;
+            max-height: 100%;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            background-color: white;
+        }
+        
+        /* Loading indicator */
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.5rem;
+            color: #0a2e5c;
+        }
+        
+        /* Error message */
+        .error {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.5rem;
+            color: #d63031;
+            text-align: center;
+            max-width: 80%;
+        }
+        
+        /* Side navigation arrows */
+        .side-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: transparent;
+            border: none;
+            font-size: 4rem;
+            color: #0a2e5c;
+            cursor: pointer;
+            padding: 1rem;
+            z-index: 10;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.7);
+            transition: all 0.2s ease;
+        }
+        
+        .side-nav:hover {
+            transform: translateY(-50%) scale(1.2);
+            color: #154785;
+        }
+        
+        .side-nav-left {
+            left: 0;
+        }
+        
+        .side-nav-right {
+            right: 0;
+        }
+        
+        /* Page counter */
+        .page-counter {
+            position: absolute;
+            bottom: 1rem;
+            right: 1rem;
+            font-size: 0.875rem;
+            color: #0a2e5c;
+            background-color: rgba(255, 255, 255, 0.7);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+        }
+    </style>
+    <!-- PDF.js library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+<body>
+    <div class="presentation-container">
+        <div class="pdf-container">
+            <!-- Side navigation arrows -->
+            <button class="side-nav side-nav-left" id="prev-btn">‹</button>
+            <button class="side-nav side-nav-right" id="next-btn">›</button>
+            
+            <!-- Loading indicator -->
+            <div class="loading" id="loading">Loading PDF...</div>
+            
+            <!-- PDF Canvas -->
+            <canvas id="pdf-canvas"></canvas>
+            
+            <!-- Page counter -->
+            <div class="page-counter" id="page-counter">Page 1 of ?</div>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // PDF.js setup
+            const pdfjsLib = window['pdfjs-dist/build/pdf'];
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            
+            // Elements
+            const pdfCanvas = document.getElementById('pdf-canvas');
+            const loadingElement = document.getElementById('loading');
+            const prevBtn = document.getElementById('prev-btn');
+            const nextBtn = document.getElementById('next-btn');
+            const pageCounter = document.getElementById('page-counter');
+            
+            // Canvas context
+            const ctx = pdfCanvas.getContext('2d');
+            
+            // State variables
+            let pdfDoc = null;
+            let pageNum = 1;
+            let pageRendering = false;
+            let pageNumPending = null;
+            let scale = 1.5; // Adjust scale as needed for your PDF
+            
+            // Path to the PDF file - change this to your file path
+            const pdfPath = 'carvedilol.pdf';
+            
+            /**
+             * Get and render the page
+             */
+            function renderPage(num) {
+                pageRendering = true;
+                
+                // Show loading
+                loadingElement.style.display = 'block';
+                
+                pdfDoc.getPage(num).then(function(page) {
+                    // Calculate scale to fit the viewport
+                    const viewport = page.getViewport({ scale });
+                    
+                    // Set canvas dimensions
+                    pdfCanvas.width = viewport.width;
+                    pdfCanvas.height = viewport.height;
+                    
+                    // Render PDF page
+                    const renderContext = {
+                        canvasContext: ctx,
+                        viewport: viewport
+                    };
+                    
+                    const renderTask = page.render(renderContext);
+                    
+                    // Wait for rendering to finish
+                    renderTask.promise.then(function() {
+                        pageRendering = false;
+                        
+                        // Hide loading
+                        loadingElement.style.display = 'none';
+                        
+                        // Update page counter
+                        pageCounter.textContent = `Page ${pageNum} of ${pdfDoc.numPages}`;
+                        
+                        // Update navigation buttons
+                        prevBtn.style.visibility = pageNum <= 1 ? 'hidden' : 'visible';
+                        nextBtn.style.visibility = pageNum >= pdfDoc.numPages ? 'hidden' : 'visible';
+                        
+                        if (pageNumPending !== null) {
+                            // New page rendering is pending
+                            renderPage(pageNumPending);
+                            pageNumPending = null;
+                        }
+                    });
+                });
+            }
+            
+            /**
+             * Display previous page
+             */
+            function showPrevPage() {
+                if (pageNum <= 1) {
+                    return;
+                }
+                pageNum--;
+                queueRenderPage(pageNum);
+            }
+            
+            /**
+             * Display next page
+             */
+            function showNextPage() {
+                if (pageNum >= pdfDoc.numPages) {
+                    return;
+                }
+                pageNum++;
+                queueRenderPage(pageNum);
+            }
+            
+            /**
+             * Queue the page rendering to avoid multiple concurrent renderings
+             */
+            function queueRenderPage(num) {
+                if (pageRendering) {
+                    pageNumPending = num;
+                } else {
+                    renderPage(num);
+                }
+            }
+            
+            /**
+             * Load and initialize the PDF
+             */
+            pdfjsLib.getDocument(pdfPath).promise
+                .then(function(pdf) {
+                    pdfDoc = pdf;
+                    
+                    // Set initial page counter
+                    pageCounter.textContent = `Page ${pageNum} of ${pdfDoc.numPages}`;
+                    
+                    // Hide loading
+                    loadingElement.style.display = 'none';
+                    
+                    // Initial render
+                    renderPage(pageNum);
+                })
+                .catch(function(error) {
+                    // Create error message
+                    const errorElement = document.createElement('div');
+                    errorElement.className = 'error';
+                    errorElement.innerHTML = `
+                        <p>Failed to load PDF: ${error.message}</p>
+                        <p>Make sure the PDF file exists at the specified path: ${pdfPath}</p>
+                    `;
+                    
+                    // Hide loading
+                    loadingElement.style.display = 'none';
+                    
+                    // Add error to the document
+                    document.querySelector('.pdf-container').appendChild(errorElement);
+                    
+                    console.error('Error loading PDF:', error);
+                });
+            
+            // Button event listeners
+            prevBtn.addEventListener('click', showPrevPage);
+            nextBtn.addEventListener('click', showNextPage);
+            
+            // Keyboard navigation
+            document.addEventListener('keydown', function(event) {
+                if (event.key === 'ArrowLeft') {
+                    showPrevPage();
+                } else if (event.key === 'ArrowRight') {
+                    showNextPage();
+                }
+            });
+            
+            // Initially hide prev button
+            prevBtn.style.visibility = 'hidden';
+            
+            // Handle window resize
+            window.addEventListener('resize', function() {
+                if (pdfDoc) {
+                    // Re-render current page on resize
+                    renderPage(pageNum);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
