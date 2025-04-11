@@ -27,6 +27,17 @@ export async function generatePath(
   state: typeof OpenCanvasGraphAnnotation.State,
   config: LangGraphRunnableConfig
 ): Promise<OpenCanvasGraphReturnType> {
+  console.log("🔍 Generate Path called");
+  console.log("🔍 Presentation mode:", state.presentationMode);
+  console.log("🔍 Presentation slide:", state.presentationSlide);
+  // Check for presentation mode first
+  if (state.presentationMode) {
+    console.log("🔍 Routing to presentation mode handler");
+    return {
+      next: "presentationModeHandler",
+    };
+  }
+
   const { _messages } = state;
   const newMessages: BaseMessage[] = [];
   const docMessage = await convertContextDocumentToHumanMessage(

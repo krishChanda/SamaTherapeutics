@@ -54,6 +54,7 @@ export function CanvasComponent() {
   // Listen for presentation mode changes from Thread component
   useEffect(() => {
     const handlePresentationModeChange = (event: PresentationModeChangeEvent) => {
+      console.log("🔍 Presentation mode changed to:", event.detail.isActive);
       setPresentationMode(event.detail.isActive);
     };
     
@@ -201,9 +202,9 @@ export function CanvasComponent() {
 
                   if (thread?.metadata?.modelConfig) {
                     setModelConfig(
-                      (thread?.metadata.customModelName ??
+                      (thread?.metadata?.customModelName ??
                         DEFAULT_MODEL_NAME) as ALL_MODEL_NAMES,
-                      (thread.metadata.modelConfig ??
+                      (thread.metadata?.modelConfig ??
                         DEFAULT_MODEL_CONFIG) as CustomModelConfig
                     );
                   } else {

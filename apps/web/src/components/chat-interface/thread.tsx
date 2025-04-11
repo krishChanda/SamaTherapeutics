@@ -18,6 +18,7 @@ import { ThreadWelcome } from "./welcome";
 import { useUserContext } from "@/contexts/UserContext";
 import { useThreadContext } from "@/contexts/ThreadProvider";
 import { useAssistantContext } from "@/contexts/AssistantContext";
+import { usePresentation } from '@/contexts/PresentationContext';
 import SlideDeck from "../ui/slidedeck";
 
 // Import CSS styles
@@ -74,6 +75,9 @@ export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
   
   // State for presentation mode
   const [showPresentation, setShowPresentation] = useState<boolean>(false);
+  
+  // Get presentation context inside the component
+  const { startPresentation, exitPresentation, isPresentationMode } = usePresentation();
 
   // Tell parent components about presentation mode state
   useEffect(() => {
@@ -125,8 +129,13 @@ export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
     }
   };
 
-  // Toggle presentation visibility
+  // Toggle presentation visibility and update presentation context
   const togglePresentation = () => {
+    if (showPresentation) {
+      exitPresentation();
+    } else {
+      startPresentation();
+    }
     setShowPresentation(!showPresentation);
   };
 

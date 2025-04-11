@@ -133,6 +133,14 @@ export const OpenCanvasGraphAnnotation = Annotation.Root({
    * The search results to include in context.
    */
   webSearchResults: Annotation<SearchResult[] | undefined>,
+  /**
+   * Whether the application is in presentation mode.
+   */
+  presentationMode: Annotation<boolean | undefined>,
+  /**
+   * The current slide number in presentation mode.
+   */
+  presentationSlide: Annotation<number | undefined>,
 });
 
 export type OpenCanvasGraphReturnType = Partial<

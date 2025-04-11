@@ -5,6 +5,7 @@ import { AssistantProvider } from "@/contexts/AssistantContext";
 import { GraphProvider } from "@/contexts/GraphContext";
 import { ThreadProvider } from "@/contexts/ThreadProvider";
 import { UserProvider } from "@/contexts/UserContext";
+import { PresentationProvider } from "@/contexts/PresentationContext"; // Import the PresentationProvider
 import { Suspense } from "react";
 
 export default function Home() {
@@ -14,7 +15,9 @@ export default function Home() {
         <ThreadProvider>
           <AssistantProvider>
             <GraphProvider>
-              <Canvas />
+              <PresentationProvider> {/* Add the PresentationProvider here */}
+                <Canvas />
+              </PresentationProvider>
             </GraphProvider>
           </AssistantProvider>
         </ThreadProvider>

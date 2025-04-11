@@ -203,6 +203,12 @@
                             renderPage(pageNumPending);
                             pageNumPending = null;
                         }
+                        
+                        // Notify parent window of slide change
+                        window.parent.postMessage({
+                            type: 'slideChanged',
+                            slideNumber: pageNum
+                        }, '*');
                     });
                 });
             }
@@ -297,6 +303,28 @@
                     renderPage(pageNum);
                 }
             });
+            
+            // Listen for messages from parent window
+            window.addEventListener('message', function(event) {
+                if (event.data && event.data.type === 'goToSlide') {
+                    const slideNumber = event.data.slideNumber;
+                    if (slideNumber >= 1 && slideNumber <= pdfDoc.numPages) {
+                        pageNum = slideNumber;
+                        queueRenderPage(pageNum);
+                    }
+                }
+            });
+            
+            // Check for initial slide in URL parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            const initialSlide = urlParams.get('slide');
+            if (initialSlide) {
+                const slideNum = parseInt(initialSlide);
+                if (!isNaN(slideNum) && slideNum >= 1) {
+                    // Set the initial page number once the PDF is loaded
+                    pageNum = slideNum;
+                }
+            }
         });
     </script>
 </body>
