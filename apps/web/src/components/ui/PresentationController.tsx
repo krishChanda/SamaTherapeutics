@@ -4,6 +4,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useGraphContext } from '@/contexts/GraphContext';
 import { HumanMessage } from '@langchain/core/messages';
 import { v4 as uuidv4 } from "uuid";
+import MultipleChoicePanel from './MultipleChoicePanel';
+import { useMultipleChoice, Question } from '@/contexts/MultipleChoiceContext';
 
 interface PresentationControllerProps {
   exitPresentation: () => void;
@@ -14,8 +16,12 @@ const PresentationController: React.FC<PresentationControllerProps> = ({ exitPre
   const [totalSlides, setTotalSlides] = useState(7);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
   const { graphData } = useGraphContext();
-  const { streamMessage, setMessages, messages } = graphData;
+  const { streamMessage, setMessages } = graphData;
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
+  
+  // Use the MultipleChoice context
+  const { getQuestionsBySlide, handleAnswerSelected } = useMultipleChoice();
 
   // Listen for slide changes from the iframe
   useEffect(() => {
@@ -31,6 +37,12 @@ const PresentationController: React.FC<PresentationControllerProps> = ({ exitPre
       window.removeEventListener('message', handleMessageFromIframe);
     };
   }, []);
+
+  // Update current question when slide changes - using the context's getQuestionsBySlide
+  useEffect(() => {
+    const slideQuestions = getQuestionsBySlide(currentSlide);
+    setCurrentQuestion(slideQuestions.length > 0 ? slideQuestions[0] : null);
+  }, [currentSlide, getQuestionsBySlide]);
 
   // Initialize presentation on first load
   useEffect(() => {
@@ -118,14 +130,31 @@ const PresentationController: React.FC<PresentationControllerProps> = ({ exitPre
         </button>
       </div>
       
-      {/* PDF Viewer using your existing presentation.html */}
-      <div className="flex-1 bg-white">
-        <iframe 
-          ref={iframeRef}
-          src={`/presentation.html?slide=${currentSlide}`}
-          className="w-full h-full border-none presentation-iframe"
-          title="Carvedilol Presentation"
-        />
+      {/* Main content layout with slide at top and question at bottom */}
+      <div className="flex-1 flex flex-col bg-white">
+        {/* Slide presentation takes most of the space */}
+        <div className="flex-1 overflow-hidden">
+          <iframe 
+            ref={iframeRef}
+            src={`/presentation.html?slide=${currentSlide}`}
+            className="w-full h-full border-none presentation-iframe"
+            title="Carvedilol Presentation"
+          />
+        </div>
+        
+        {/* Question panel fixed at the bottom if available */}
+        {currentQuestion && (
+          <div className="border-t border-gray-200">
+            <div className="bg-gray-50 py-2 px-4 text-center font-semibold text-lg">
+              Question {currentSlide}:
+            </div>
+            <MultipleChoicePanel
+              question={currentQuestion}
+              onAnswerSelected={handleAnswerSelected}
+              slideNumber={currentSlide}
+            />
+          </div>
+        )}
       </div>
       
       {/* Navigation controls */}

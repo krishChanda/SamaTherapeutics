@@ -21,7 +21,7 @@ export function PresentationProvider({ children }: { children: ReactNode }) {
   const [currentSlide, setCurrentSlide] = useState(1);
   const [totalSlides, setTotalSlides] = useState(7); // Total slides in the Carvedilol presentation
   const { graphData } = useGraphContext();
-  const { streamMessage, setMessages, messages } = graphData;
+  const { streamMessage, setMessages } = graphData;
 
   // Listen for presentation mode changes from other components
   React.useEffect(() => {

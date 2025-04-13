@@ -4,7 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ProgrammingLanguageOptions } from "@opencanvas/shared/types";
 import { ThreadPrimitive } from "@assistant-ui/react";
 import { Thread as ThreadType } from "@langchain/langgraph-sdk";
-import { ArrowDownIcon, PanelRightOpen, SquarePen, Presentation } from "lucide-react";
+import { ArrowDownIcon, PanelRightOpen, SquarePen, Presentation, CheckSquare } from "lucide-react";
 import { Dispatch, FC, SetStateAction } from "react";
 import { ReflectionsDialog } from "../reflections-dialog/ReflectionsDialog";
 import { useLangSmithLinkToolUI } from "../tool-hooks/LangSmithLinkToolUI";
@@ -19,6 +19,7 @@ import { useUserContext } from "@/contexts/UserContext";
 import { useThreadContext } from "@/contexts/ThreadProvider";
 import { useAssistantContext } from "@/contexts/AssistantContext";
 import { usePresentation } from '@/contexts/PresentationContext';
+import { useMultipleChoice } from '@/contexts/MultipleChoiceContext';
 import SlideDeck from "../ui/slidedeck";
 
 // Import CSS styles
@@ -78,15 +79,22 @@ export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
   
   // Get presentation context inside the component
   const { startPresentation, exitPresentation, isPresentationMode } = usePresentation();
+  
+  // Get multiple choice context
+  const { isMultipleChoiceMode, toggleMultipleChoiceMode, disableMultipleChoiceMode } = useMultipleChoice();
 
-  // Tell parent components about presentation mode state
+  // Tell parent components about presentation and multiple choice mode state
   useEffect(() => {
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('presentationModeChange', { 
         detail: { isActive: showPresentation } 
       }));
+      
+      window.dispatchEvent(new CustomEvent('multipleChoiceModeChange', {
+        detail: { isActive: isMultipleChoiceMode }
+      }));
     }
-  }, [showPresentation]);
+  }, [showPresentation, isMultipleChoiceMode]);
   
   // Listen for exit presentation event from Canvas component
   useEffect(() => {
@@ -127,16 +135,42 @@ export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
     if (showPresentation) {
       setShowPresentation(false);
     }
+    
+    // Exit multiple choice mode if active
+    if (isMultipleChoiceMode) {
+      disableMultipleChoiceMode();
+    }
   };
 
-  // Toggle presentation visibility and update presentation context
+  // Enhanced toggle presentation function with improved integration
   const togglePresentation = () => {
     if (showPresentation) {
+      // When turning off presentation, also exit quiz mode
+      if (isMultipleChoiceMode) {
+        disableMultipleChoiceMode();
+      }
       exitPresentation();
+      setShowPresentation(false);
     } else {
       startPresentation();
+      setShowPresentation(true);
     }
-    setShowPresentation(!showPresentation);
+  };
+  
+  // Enhanced multiple choice toggle with improved integration
+  const handleMultipleChoiceToggle = () => {
+    if (!isMultipleChoiceMode) {
+      // If turning on quiz mode and presentation is not showing, start presentation
+      if (!showPresentation) {
+        startPresentation();
+        setShowPresentation(true);
+      }
+      // Enable quiz mode
+      toggleMultipleChoiceMode();
+    } else {
+      // Just disable quiz mode, keep presentation if it's active
+      disableMultipleChoiceMode();
+    }
   };
 
   return (
@@ -162,6 +196,18 @@ export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
             </div>
             {hasChatStarted ? (
               <div className="flex flex-row flex-1 gap-2 items-center justify-end">
+                {/* Multiple Choice Mode Button */}
+                <TooltipIconButton
+                  tooltip={isMultipleChoiceMode ? "Exit Quiz Mode" : "Quiz Mode"}
+                  variant="ghost"
+                  className="w-8 h-8"
+                  delayDuration={400}
+                  onClick={handleMultipleChoiceToggle}
+                >
+                  <CheckSquare className={`${isMultipleChoiceMode ? 'text-blue-600' : 'text-gray-600'}`} />
+                </TooltipIconButton>
+                
+                {/* Presentation Mode Button */}
                 <TooltipIconButton
                   tooltip={showPresentation ? "Hide Presentation" : "Show Presentation"}
                   variant="ghost"
@@ -171,6 +217,7 @@ export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
                 >
                   <Presentation className={`${showPresentation ? 'text-blue-600' : 'text-gray-600'}`} />
                 </TooltipIconButton>
+                
                 <TooltipIconButton
                   tooltip="Collapse Chat"
                   variant="ghost"
