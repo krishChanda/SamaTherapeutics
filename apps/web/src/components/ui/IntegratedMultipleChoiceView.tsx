@@ -9,98 +9,131 @@ import QuizNavigation from './QuizNavigation';
 
 const IntegratedMultipleChoiceView: React.FC = () => {
   const { 
-    currentQuestion, 
     handleAnswerSelected, 
     disableMultipleChoiceMode,
     getQuestionsBySlide,
-    goToQuestionById
+    isQuestionAnswered,
+    resetQuizProgress,
+    getTotalQuestionsCount,
+    getCorrectAnswersCount,
+    getAnsweredQuestions
   } = useMultipleChoice();
   
   const { currentSlide, totalSlides, goToSlide } = usePresentation();
   const [slideQuestions, setSlideQuestions] = useState<Question[]>([]);
   const [selectedQuestionIndex, setSelectedQuestionIndex] = useState(0);
   const [iframeLoaded, setIframeLoaded] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
+  const [allQuestions, setAllQuestions] = useState<Question[]>([]);
+  const [globalQuestionIndex, setGlobalQuestionIndex] = useState(0);
   
-  // Update questions when the slide changes
+  // Gather all questions on component mount
   useEffect(() => {
-    const questions = getQuestionsBySlide(currentSlide);
-    setSlideQuestions(questions);
-    
-    // If there are no questions on the current slide, find the next slide with questions
-    if (questions.length === 0) {
-      let nextSlideWithQuestions = -1;
-      
-      // Search forward for a slide with questions
-      for (let i = currentSlide + 1; i <= totalSlides; i++) {
-        if (getQuestionsBySlide(i).length > 0) {
-          nextSlideWithQuestions = i;
-          break;
-        }
-      }
-      
-      // If no slides ahead have questions, search backwards
-      if (nextSlideWithQuestions === -1) {
-        for (let i = currentSlide - 1; i >= 1; i--) {
-          if (getQuestionsBySlide(i).length > 0) {
-            nextSlideWithQuestions = i;
-            break;
-          }
-        }
-      }
-      
-      // Navigate to the slide with questions if found
-      if (nextSlideWithQuestions !== -1) {
-        goToSlide(nextSlideWithQuestions);
-      }
-    } else {
-      // Reset to first question when changing to a slide with questions
-      setSelectedQuestionIndex(0);
+    const questions: Question[] = [];
+    for (let i = 1; i <= totalSlides; i++) {
+      const slideQuestions = getQuestionsBySlide(i);
+      questions.push(...slideQuestions);
     }
-  }, [currentSlide, getQuestionsBySlide, goToSlide, totalSlides]);
+    setAllQuestions(questions);
+  }, [getQuestionsBySlide, totalSlides]);
+  
+  // Update slide questions when the slide changes
+  useEffect(() => {
+    if (!showSummary) {
+      const questions = getQuestionsBySlide(currentSlide);
+      setSlideQuestions(questions);
+      
+      // If we have questions on this slide, find the current question's index
+      if (questions.length > 0) {
+        // Find the global index of the first question on this slide
+        const firstQuestionOnSlide = questions[0];
+        const globalIndex = allQuestions.findIndex(q => q.id === firstQuestionOnSlide.id);
+        if (globalIndex !== -1) {
+          setGlobalQuestionIndex(globalIndex);
+          setSelectedQuestionIndex(0);
+        }
+      }
+    }
+  }, [currentSlide, getQuestionsBySlide, showSummary, allQuestions]);
   
   const displayedQuestion = slideQuestions.length > 0 && selectedQuestionIndex < slideQuestions.length 
     ? slideQuestions[selectedQuestionIndex] 
     : null;
   
-  // Navigate between questions for the current slide
+  // Navigate to the previous question globally
   const goToPreviousQuestion = useCallback(() => {
-    if (selectedQuestionIndex > 0) {
-      setSelectedQuestionIndex(prev => prev - 1);
+    if (globalQuestionIndex > 0) {
+      const prevQuestion = allQuestions[globalQuestionIndex - 1];
+      
+      // If the previous question is on a different slide, navigate to that slide
+      if (prevQuestion.slideNumber !== currentSlide) {
+        goToSlide(prevQuestion.slideNumber || 1);
+        
+        // The slide change will trigger the useEffect which will update selectedQuestionIndex
+      } else {
+        // Previous question is on the same slide
+        setSelectedQuestionIndex(prev => prev - 1);
+        setGlobalQuestionIndex(prev => prev - 1);
+      }
     }
-  }, [selectedQuestionIndex]);
+  }, [globalQuestionIndex, allQuestions, currentSlide, goToSlide]);
   
+  // Navigate to the next question globally
   const goToNextQuestion = useCallback(() => {
-    if (selectedQuestionIndex < slideQuestions.length - 1) {
-      setSelectedQuestionIndex(prev => prev + 1);
+    if (globalQuestionIndex < allQuestions.length - 1) {
+      const nextQuestion = allQuestions[globalQuestionIndex + 1];
+      
+      // If the next question is on a different slide, navigate to that slide
+      if (nextQuestion.slideNumber !== currentSlide) {
+        goToSlide(nextQuestion.slideNumber || 1);
+        
+        // The slide change will trigger the useEffect which will update selectedQuestionIndex
+      } else {
+        // Next question is on the same slide
+        setSelectedQuestionIndex(prev => prev + 1);
+        setGlobalQuestionIndex(prev => prev + 1);
+      }
+    } else {
+      // We've reached the end of all questions - show summary
+      setShowSummary(true);
     }
-  }, [selectedQuestionIndex, slideQuestions.length]);
+  }, [globalQuestionIndex, allQuestions, currentSlide, goToSlide]);
 
   // Handle slide loaded
   const handleSlideLoaded = useCallback(() => {
     setIframeLoaded(true);
   }, []);
   
-  // Handle answer selection with enhanced feedback
+  // Handle answer selection
   const handleAnswer = useCallback((choiceId: string, isCorrect: boolean) => {
-    handleAnswerSelected(choiceId, isCorrect);
-    
-    // Auto-advance to next question after a delay if correct
-    if (isCorrect && selectedQuestionIndex < slideQuestions.length - 1) {
-      setTimeout(() => {
-        goToNextQuestion();
-      }, 1500); // Delay to allow user to see feedback
+    if (displayedQuestion) {
+      handleAnswerSelected(choiceId, isCorrect);
     }
-  }, [handleAnswerSelected, selectedQuestionIndex, slideQuestions.length, goToNextQuestion]);
+  }, [displayedQuestion, handleAnswerSelected]);
 
   // Check if there are any questions in the quiz
   const hasAnyQuestions = useCallback(() => {
-    for (let i = 1; i <= totalSlides; i++) {
-      if (getQuestionsBySlide(i).length > 0) {
-        return true;
-      }
+    return allQuestions.length > 0;
+  }, [allQuestions]);
+
+  // Restart the quiz
+  const handleRestartQuiz = useCallback(() => {
+    resetQuizProgress();
+    setShowSummary(false);
+    
+    // Go to the first question
+    if (allQuestions.length > 0) {
+      const firstQuestion = allQuestions[0];
+      goToSlide(firstQuestion.slideNumber || 1);
+      setGlobalQuestionIndex(0);
+      setSelectedQuestionIndex(0);
     }
-    return false;
-  }, [getQuestionsBySlide, totalSlides]);
+  }, [goToSlide, resetQuizProgress, allQuestions]);
+
+  // Check if the current question has been answered
+  const isCurrentQuestionAnswered = displayedQuestion 
+    ? isQuestionAnswered(displayedQuestion.id) 
+    : false;
 
   // If no questions are available, show a message
   if (!hasAnyQuestions()) {
@@ -115,6 +148,52 @@ const IntegratedMultipleChoiceView: React.FC = () => {
           >
             Exit Quiz Mode
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Show the summary screen if we've reached the end
+  if (showSummary) {
+    const correctAnswers = getCorrectAnswersCount();
+    const totalQuestions = getTotalQuestionsCount();
+    
+    return (
+      <div className="h-full w-full flex flex-col bg-white">
+        <div className="flex justify-between items-center p-2 border-b bg-white">
+          <h1 className="text-xl font-semibold">Quiz Results</h1>
+          <button
+            className="bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-3 rounded-md shadow-md"
+            onClick={disableMultipleChoiceMode}
+          >
+            Exit Quiz Mode
+          </button>
+        </div>
+        
+        <div className="flex-1 flex flex-col items-center justify-center p-8">
+          <div className="max-w-lg w-full bg-white rounded-lg shadow-lg p-8 text-center">
+            <h2 className="text-2xl font-bold mb-6">Quiz Completed!</h2>
+            <div className="text-6xl font-bold mb-4 text-blue-600">
+              {correctAnswers} / {totalQuestions}
+            </div>
+            <p className="text-xl mb-8">
+              You answered {correctAnswers} out of {totalQuestions} questions correctly!
+            </p>
+            <div className="flex justify-center space-x-4">
+              <button
+                className="px-6 py-3 bg-green-500 text-white rounded-md hover:bg-green-600 font-semibold"
+                onClick={handleRestartQuiz}
+              >
+                Restart Quiz
+              </button>
+              <button
+                className="px-6 py-3 bg-red-500 text-white rounded-md hover:bg-red-600 font-semibold"
+                onClick={disableMultipleChoiceMode}
+              >
+                Exit Quiz
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -156,6 +235,8 @@ const IntegratedMultipleChoiceView: React.FC = () => {
               onAnswerSelected={handleAnswer}
               className="h-full"
               slideNumber={currentSlide}
+              isAnswered={isCurrentQuestionAnswered}
+              readOnly={isCurrentQuestionAnswered}
             />
           ) : (
             <div className="flex items-center justify-center h-full">
@@ -171,6 +252,10 @@ const IntegratedMultipleChoiceView: React.FC = () => {
         currentQuestionIndex={selectedQuestionIndex}
         onPreviousQuestion={goToPreviousQuestion}
         onNextQuestion={goToNextQuestion}
+        isCurrentQuestionAnswered={isCurrentQuestionAnswered}
+        showNextButton={true}
+        disableNextButton={!isCurrentQuestionAnswered}
+        globalProgress={`Question ${globalQuestionIndex + 1} of ${allQuestions.length}`}
       />
     </div>
   );

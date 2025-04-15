@@ -204,6 +204,13 @@ interface MultipleChoiceContextProps {
   getSlideForQuestion: (questionId: string) => number | undefined;
   goToQuestionById: (questionId: string) => void;
   handleAnswerSelected: (choiceId: string, isCorrect: boolean) => void;
+  getAnsweredQuestions: () => string[];
+  setAnsweredQuestion: (questionId: string) => void;
+  isQuestionAnswered: (questionId: string) => boolean;
+  resetQuizProgress: () => void;
+  getTotalQuestionsCount: () => number;
+  getCorrectAnswersCount: () => number;
+  incrementCorrectAnswers: () => void;
 }
 
 const MultipleChoiceContext = createContext<MultipleChoiceContextProps | undefined>(undefined);
@@ -211,25 +218,74 @@ const MultipleChoiceContext = createContext<MultipleChoiceContextProps | undefin
 export const MultipleChoiceProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
   const [isMultipleChoiceMode, setIsMultipleChoiceMode] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [answeredQuestions, setAnsweredQuestions] = useState<string[]>([]);
+  const [correctAnswers, setCorrectAnswers] = useState(0);
+  
   const { graphData } = useGraphContext();
   const { streamMessage, setMessages } = graphData;
   
   // Get the presentation context
   const { currentSlide, goToSlide } = usePresentation();
   
+  // Keep track of answered questions
+  const getAnsweredQuestions = useCallback(() => {
+    return answeredQuestions;
+  }, [answeredQuestions]);
+  
+  const setAnsweredQuestion = useCallback((questionId: string) => {
+    setAnsweredQuestions(prev => {
+      if (prev.includes(questionId)) {
+        return prev;
+      }
+      return [...prev, questionId];
+    });
+  }, []);
+  
+  const isQuestionAnswered = useCallback((questionId: string) => {
+    return answeredQuestions.includes(questionId);
+  }, [answeredQuestions]);
+  
+  const resetQuizProgress = useCallback(() => {
+    setAnsweredQuestions([]);
+    setCorrectAnswers(0);
+  }, []);
+  
+  const getTotalQuestionsCount = useCallback(() => {
+    return quizQuestions.length;
+  }, []);
+  
+  const getCorrectAnswersCount = useCallback(() => {
+    return correctAnswers;
+  }, [correctAnswers]);
+  
+  const incrementCorrectAnswers = useCallback(() => {
+    setCorrectAnswers(prev => prev + 1);
+  }, []);
+  
   // Automatically adjust the current question based on the slide
   useEffect(() => {
     if (isMultipleChoiceMode) {
       const slideQuestions = getQuestionsBySlide(currentSlide);
       if (slideQuestions.length > 0) {
-        // Find the index of the first question for this slide
-        const firstQuestionIndex = quizQuestions.findIndex(q => q.id === slideQuestions[0].id);
-        if (firstQuestionIndex !== -1) {
-          setCurrentQuestionIndex(firstQuestionIndex);
+        // Find the first unanswered question for this slide
+        const firstUnansweredQuestion = slideQuestions.find(q => !answeredQuestions.includes(q.id));
+        
+        if (firstUnansweredQuestion) {
+          // Go to the first unanswered question
+          const index = quizQuestions.findIndex(q => q.id === firstUnansweredQuestion.id);
+          if (index !== -1) {
+            setCurrentQuestionIndex(index);
+          }
+        } else {
+          // All questions for this slide are answered, show the first one
+          const firstQuestionIndex = quizQuestions.findIndex(q => q.id === slideQuestions[0].id);
+          if (firstQuestionIndex !== -1) {
+            setCurrentQuestionIndex(firstQuestionIndex);
+          }
         }
       }
     }
-  }, [currentSlide, isMultipleChoiceMode]);
+  }, [currentSlide, isMultipleChoiceMode, answeredQuestions]);
 
   const toggleMultipleChoiceMode = useCallback(() => {
     setIsMultipleChoiceMode(prev => !prev);
@@ -272,34 +328,43 @@ export const MultipleChoiceProvider: React.FC<{children: React.ReactNode}> = ({ 
   // Enhanced nextQuestion function to sync with presentation
   const nextQuestion = useCallback(() => {
     if (currentQuestionIndex < quizQuestions.length - 1) {
-      setCurrentQuestionIndex(prev => prev + 1);
+      // Set the next question index
+      const nextIndex = currentQuestionIndex + 1;
+      setCurrentQuestionIndex(nextIndex);
       
-      // Get the next question's slide number
-      const nextQuestionIndex = currentQuestionIndex + 1;
-      if (nextQuestionIndex < quizQuestions.length) {
-        const nextQuestion = quizQuestions[nextQuestionIndex];
-        if (nextQuestion.slideNumber) {
-          // Navigate to the slide associated with the next question
-          goToSlide(nextQuestion.slideNumber);
-        }
+      // Get the next question
+      const nextQuestion = quizQuestions[nextIndex];
+      if (nextQuestion && nextQuestion.slideNumber) {
+        // Navigate to the slide associated with the next question
+        goToSlide(nextQuestion.slideNumber);
       }
+    } else {
+      // If we're at the last question, loop back to the first question
+      const firstSlideWithQuestions = quizQuestions[0].slideNumber || 1;
+      setCurrentQuestionIndex(0);
+      goToSlide(firstSlideWithQuestions);
     }
   }, [currentQuestionIndex, goToSlide]);
   
   // Enhanced previousQuestion function to sync with presentation
   const previousQuestion = useCallback(() => {
     if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(prev => prev - 1);
+      // Set the previous question index
+      const prevIndex = currentQuestionIndex - 1;
+      setCurrentQuestionIndex(prevIndex);
       
-      // Get the previous question's slide number
-      const prevQuestionIndex = currentQuestionIndex - 1;
-      if (prevQuestionIndex >= 0) {
-        const prevQuestion = quizQuestions[prevQuestionIndex];
-        if (prevQuestion.slideNumber) {
-          // Navigate to the slide associated with the previous question
-          goToSlide(prevQuestion.slideNumber);
-        }
+      // Get the previous question
+      const prevQuestion = quizQuestions[prevIndex];
+      if (prevQuestion && prevQuestion.slideNumber) {
+        // Navigate to the slide associated with the previous question
+        goToSlide(prevQuestion.slideNumber);
       }
+    } else {
+      // If we're at the first question, loop to the last question
+      const lastIndex = quizQuestions.length - 1;
+      const lastSlideWithQuestions = quizQuestions[lastIndex].slideNumber || 1;
+      setCurrentQuestionIndex(lastIndex);
+      goToSlide(lastSlideWithQuestions);
     }
   }, [currentQuestionIndex, goToSlide]);
   
@@ -336,13 +401,21 @@ export const MultipleChoiceProvider: React.FC<{children: React.ReactNode}> = ({ 
     return question?.slideNumber || 1;
   }, []);
   
-  // Handle answer selection
+  // Enhanced handle answer selection with progress tracking
   const handleAnswerSelected = useCallback((choiceId: string, isCorrect: boolean) => {
     // Create a message ID
     const messageId = uuidv4();
     
     // Get the current question
     const question = quizQuestions[currentQuestionIndex];
+    
+    // Mark the question as answered
+    setAnsweredQuestion(question.id);
+    
+    // If the answer is correct, increment the correct answers count
+    if (isCorrect) {
+      incrementCorrectAnswers();
+    }
     
     // Create a message about the answer
     const answerMessage = new HumanMessage({
@@ -361,7 +434,7 @@ export const MultipleChoiceProvider: React.FC<{children: React.ReactNode}> = ({ 
         id: messageId
       }]
     } as any);
-  }, [currentQuestionIndex, setMessages, streamMessage]);
+  }, [currentQuestionIndex, setMessages, streamMessage, setAnsweredQuestion, incrementCorrectAnswers]);
 
   // Get the current question
   const currentQuestion = currentQuestionIndex >= 0 && currentQuestionIndex < quizQuestions.length 
@@ -383,7 +456,14 @@ export const MultipleChoiceProvider: React.FC<{children: React.ReactNode}> = ({ 
       getQuestionsBySlide,
       getSlideForQuestion,
       goToQuestionById,
-      handleAnswerSelected
+      handleAnswerSelected,
+      getAnsweredQuestions,
+      setAnsweredQuestion,
+      isQuestionAnswered,
+      resetQuizProgress,
+      getTotalQuestionsCount,
+      getCorrectAnswersCount,
+      incrementCorrectAnswers
     }}>
       {children}
     </MultipleChoiceContext.Provider>

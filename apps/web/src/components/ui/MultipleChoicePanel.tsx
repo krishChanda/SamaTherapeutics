@@ -9,22 +9,29 @@ interface MultipleChoicePanelProps {
   onAnswerSelected: (choiceId: string, isCorrect: boolean) => void;
   className?: string;
   slideNumber?: number;
+  isAnswered?: boolean;
+  readOnly?: boolean;
 }
 
 const MultipleChoicePanel: React.FC<MultipleChoicePanelProps> = ({
   question,
   onAnswerSelected,
   className,
-  slideNumber
+  slideNumber,
+  isAnswered = false,
+  readOnly = false
 }) => {
   const [selectedChoice, setSelectedChoice] = useState<string | undefined>(undefined);
   const [showFeedback, setShowFeedback] = useState(false);
   
   // Reset state when question changes
   useEffect(() => {
-    setSelectedChoice(undefined);
-    setShowFeedback(false);
-  }, [question?.id, slideNumber]);
+    // Do not reset if in read-only mode to maintain selected state
+    if (!readOnly) {
+      setSelectedChoice(undefined);
+      setShowFeedback(false);
+    }
+  }, [question?.id, readOnly]);
   
   if (!question) {
     return <div className={cn("flex items-center justify-center h-full", className)}>
@@ -33,21 +40,35 @@ const MultipleChoicePanel: React.FC<MultipleChoicePanelProps> = ({
   }
 
   const handleChoiceClick = (choiceId: string, isCorrect: boolean) => {
-    setSelectedChoice(choiceId);
-    setShowFeedback(true);
-    onAnswerSelected(choiceId, isCorrect);
+    // Only allow selection if not already answered and not in read-only mode
+    if (!showFeedback && !readOnly) {
+      setSelectedChoice(choiceId);
+      setShowFeedback(true);
+      onAnswerSelected(choiceId, isCorrect);
+    }
   };
 
+  // Find the correct choice for highlighting
+  const correctChoice = question.choices.find(c => c.isCorrect);
+  const correctChoiceId = correctChoice?.id;
+
   const getButtonClass = (choiceId: string, isCorrect: boolean) => {
-    if (!showFeedback || selectedChoice !== choiceId) {
+    if (!showFeedback && !readOnly) {
       return selectedChoice === choiceId 
         ? "bg-blue-500 text-white hover:bg-blue-600" 
         : "bg-white border-2 border-gray-300 hover:bg-gray-100";
     }
     
-    return isCorrect 
-      ? "bg-green-500 text-white border-2 border-green-600" 
-      : "bg-red-500 text-white border-2 border-red-600";
+    // In feedback mode or read-only mode
+    if (isCorrect) {
+      return "bg-green-500 text-white border-2 border-green-600"; 
+    }
+    
+    if (selectedChoice === choiceId && !isCorrect) {
+      return "bg-red-500 text-white border-2 border-red-600";
+    }
+    
+    return "bg-white border-2 border-gray-300";
   };
 
   return (
@@ -58,7 +79,7 @@ const MultipleChoicePanel: React.FC<MultipleChoicePanelProps> = ({
           <button
             key={choice.id}
             onClick={() => handleChoiceClick(choice.id, choice.isCorrect)}
-            disabled={showFeedback}
+            disabled={showFeedback || readOnly}
             className={cn(
               "p-4 rounded-md transition-colors duration-200 font-medium text-center text-lg",
               getButtonClass(choice.id, choice.isCorrect)
@@ -78,7 +99,14 @@ const MultipleChoicePanel: React.FC<MultipleChoicePanelProps> = ({
         )}>
           {selectedChoice && question.choices.find(c => c.id === selectedChoice)?.isCorrect
             ? "Correct! Well done!"
-            : "Incorrect. Try again!"}
+            : `Incorrect. The correct answer is: ${correctChoice?.text}`}
+        </div>
+      )}
+      
+      {/* Add indicator if in read-only mode */}
+      {readOnly && !showFeedback && (
+        <div className="mt-6 p-4 rounded-md text-center font-medium text-lg max-w-4xl mx-auto bg-gray-100 text-gray-600">
+          This question has not been answered yet.
         </div>
       )}
     </div>
