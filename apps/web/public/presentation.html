@@ -38,7 +38,6 @@
             width: 100%;
             position: relative;
             overflow: hidden;
-            margin-top: -30px; /* Negative margin to shift content up */
         }
         
         /* Canvas styling */
@@ -71,35 +70,6 @@
             max-width: 80%;
         }
         
-        /* Side navigation arrows */
-        .side-nav {
-            position: absolute;
-            top: 50%;
-            transform: translateY(-50%);
-            background: transparent;
-            border: none;
-            font-size: 4rem;
-            color: #0a2e5c;
-            cursor: pointer;
-            padding: 1rem;
-            z-index: 10;
-            text-shadow: 0 0 10px rgba(255, 255, 255, 0.7);
-            transition: all 0.2s ease;
-        }
-        
-        .side-nav:hover {
-            transform: translateY(-50%) scale(1.2);
-            color: #154785;
-        }
-        
-        .side-nav-left {
-            left: 0;
-        }
-        
-        .side-nav-right {
-            right: 0;
-        }
-        
         /* Page counter */
         .page-counter {
             position: absolute;
@@ -118,10 +88,6 @@
 <body>
     <div class="presentation-container">
         <div class="pdf-container">
-            <!-- Side navigation arrows -->
-            <button class="side-nav side-nav-left" id="prev-btn">‹</button>
-            <button class="side-nav side-nav-right" id="next-btn">›</button>
-            
             <!-- Loading indicator -->
             <div class="loading" id="loading">Loading PDF...</div>
             
@@ -142,8 +108,6 @@
             // Elements
             const pdfCanvas = document.getElementById('pdf-canvas');
             const loadingElement = document.getElementById('loading');
-            const prevBtn = document.getElementById('prev-btn');
-            const nextBtn = document.getElementById('next-btn');
             const pageCounter = document.getElementById('page-counter');
             
             // Canvas context
@@ -194,10 +158,6 @@
                         // Update page counter
                         pageCounter.textContent = `Page ${pageNum} of ${pdfDoc.numPages}`;
                         
-                        // Update navigation buttons
-                        prevBtn.style.visibility = pageNum <= 1 ? 'hidden' : 'visible';
-                        nextBtn.style.visibility = pageNum >= pdfDoc.numPages ? 'hidden' : 'visible';
-                        
                         if (pageNumPending !== null) {
                             // New page rendering is pending
                             renderPage(pageNumPending);
@@ -211,28 +171,6 @@
                         }, '*');
                     });
                 });
-            }
-            
-            /**
-             * Display previous page
-             */
-            function showPrevPage() {
-                if (pageNum <= 1) {
-                    return;
-                }
-                pageNum--;
-                queueRenderPage(pageNum);
-            }
-            
-            /**
-             * Display next page
-             */
-            function showNextPage() {
-                if (pageNum >= pdfDoc.numPages) {
-                    return;
-                }
-                pageNum++;
-                queueRenderPage(pageNum);
             }
             
             /**
@@ -280,21 +218,20 @@
                     console.error('Error loading PDF:', error);
                 });
             
-            // Button event listeners
-            prevBtn.addEventListener('click', showPrevPage);
-            nextBtn.addEventListener('click', showNextPage);
-            
-            // Keyboard navigation
+            // Keyboard navigation - keeping this for accessibility
             document.addEventListener('keydown', function(event) {
                 if (event.key === 'ArrowLeft') {
-                    showPrevPage();
+                    if (pageNum > 1) {
+                        pageNum--;
+                        queueRenderPage(pageNum);
+                    }
                 } else if (event.key === 'ArrowRight') {
-                    showNextPage();
+                    if (pageNum < pdfDoc.numPages) {
+                        pageNum++;
+                        queueRenderPage(pageNum);
+                    }
                 }
             });
-            
-            // Initially hide prev button
-            prevBtn.style.visibility = 'hidden';
             
             // Handle window resize
             window.addEventListener('resize', function() {

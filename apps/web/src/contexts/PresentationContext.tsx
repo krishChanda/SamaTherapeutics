@@ -1,7 +1,9 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+// contexts/PresentationContext.tsx
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useGraphContext } from './GraphContext';
 import { HumanMessage } from '@langchain/core/messages';
 import { v4 as uuidv4 } from "uuid";
+import { GraphInput } from "@opencanvas/shared/types";
 
 interface PresentationContextProps {
   isPresentationMode: boolean;
@@ -16,15 +18,15 @@ interface PresentationContextProps {
 
 const PresentationContext = createContext<PresentationContextProps | undefined>(undefined);
 
-export function PresentationProvider({ children }: { children: ReactNode }) {
+export function PresentationProvider({ children }: { children: React.ReactNode }) {
   const [isPresentationMode, setIsPresentationMode] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(1);
-  const [totalSlides, setTotalSlides] = useState(7); // Total slides in the Carvedilol presentation
+  const [totalSlides] = useState(7); // Total slides in the Carvedilol presentation
   const { graphData } = useGraphContext();
   const { streamMessage, setMessages } = graphData;
 
   // Listen for presentation mode changes from other components
-  React.useEffect(() => {
+  useEffect(() => {
     const handleExitPresentation = () => {
       exitPresentation();
     };
@@ -47,13 +49,13 @@ export function PresentationProvider({ children }: { children: ReactNode }) {
       detail: { isActive: true } 
     }));
     
-    // Create a message ID we can reuse
+    // Create a message ID
     const messageId = uuidv4();
     
-    // Create a message object in the expected format
+    // Create a message with special content that the generatePath function will recognize
     const initialMessage = {
       role: "human",
-      content: "Start carvedilol presentation",
+      content: "Start carvedilol presentation", // This specific phrase is recognized in generatePath
       id: messageId
     };
     
@@ -66,12 +68,14 @@ export function PresentationProvider({ children }: { children: ReactNode }) {
     // Update messages state
     setMessages(prevMessages => [...prevMessages, humanMessageForUI]);
     
-    // Stream message with presentation mode enabled
+    console.log("🔍 Streaming message for presentation start");
+    
+    // Stream the message with explicit presentation mode flags
     streamMessage({
       messages: [initialMessage],
       presentationMode: true,
       presentationSlide: 1
-    } as any);
+    } as GraphInput);
   };
 
   // Exit the presentation
@@ -82,6 +86,18 @@ export function PresentationProvider({ children }: { children: ReactNode }) {
     window.dispatchEvent(new CustomEvent('presentationModeChange', { 
       detail: { isActive: false } 
     }));
+    
+    // Create a message ID
+    const messageId = uuidv4();
+    
+    // Create a message to exit presentation
+    const exitMessage = new HumanMessage({
+      content: "Exit presentation mode",
+      id: messageId,
+    });
+    
+    // Update messages state
+    setMessages(prevMessages => [...prevMessages, exitMessage]);
   };
 
   // Navigate to the next slide
@@ -103,10 +119,11 @@ export function PresentationProvider({ children }: { children: ReactNode }) {
   // Go to a specific slide
   const goToSlide = (slideNumber: number) => {
     console.log("🔍 Going to slide:", slideNumber);
+    
     if (slideNumber >= 1 && slideNumber <= totalSlides) {
       setCurrentSlide(slideNumber);
       
-      // Send message to update the slide in the iframe
+      // Send message to update the slide in the iframe if it exists
       const iframe = document.querySelector('.presentation-iframe') as HTMLIFrameElement;
       if (iframe && iframe.contentWindow) {
         iframe.contentWindow.postMessage({
@@ -115,19 +132,20 @@ export function PresentationProvider({ children }: { children: ReactNode }) {
         }, '*');
       }
       
-      // Create a message ID we can reuse
+      // Create a message ID
       const messageId = uuidv4();
       
-      // Create a message object in the expected format
+      // Create a message with specific format that generatePath will recognize
+      // as a navigation command
       const slideChangeMessage = {
         role: "human",
-        content: `Continue to slide ${slideNumber}`,
+        content: `go to slide ${slideNumber}`, // This format is recognized in generatePath
         id: messageId
       };
       
       // Create a HumanMessage for UI purposes
       const humanMessageForUI = new HumanMessage({
-        content: `Continue to slide ${slideNumber}`,
+        content: `go to slide ${slideNumber}`,
         id: messageId,
       });
       
@@ -135,12 +153,12 @@ export function PresentationProvider({ children }: { children: ReactNode }) {
       setMessages(prevMessages => [...prevMessages, humanMessageForUI]);
       console.log("🔍 Stream message called with slide:", slideNumber);
       
-      // Stream message with the new slide
+      // Pass explicit presentationMode and presentationSlide flags to ensure they're set
       streamMessage({
         messages: [slideChangeMessage],
         presentationMode: true,
         presentationSlide: slideNumber
-      } as any);
+      } as GraphInput);
     }
   };
 

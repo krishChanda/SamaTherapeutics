@@ -29,22 +29,8 @@ import {
 import { CHAT_COLLAPSED_QUERY_PARAM } from "@/constants";
 import { useRouter, useSearchParams } from "next/navigation";
 import SlideDeck from "../ui/slidedeck";
-import IntegratedMultipleChoiceView from "../ui/IntegratedMultipleChoiceView";
 import { useMultipleChoice } from "@/contexts/MultipleChoiceContext";
-import { usePresentation } from "@/contexts/PresentationContext";
-
-// Define custom event interfaces
-interface PresentationModeChangeEvent extends CustomEvent {
-  detail: {
-    isActive: boolean;
-  };
-}
-
-interface MultipleChoiceModeChangeEvent extends CustomEvent {
-  detail: {
-    isActive: boolean;
-  };
-}
+import { usePresentation } from '@/contexts/PresentationContext';
 
 export function CanvasComponent() {
   const { graphData } = useGraphContext();
@@ -54,92 +40,16 @@ export function CanvasComponent() {
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [webSearchResultsOpen, setWebSearchResultsOpen] = useState<boolean>(false);
   const [chatCollapsed, setChatCollapsed] = useState<boolean>(false);
-  const [presentationMode, setPresentationMode] = useState<boolean>(false);
-  const [multipleChoiceMode, setMultipleChoiceMode] = useState<boolean>(false);
   
-  // Get contexts
-  const { 
-    isMultipleChoiceMode, 
-    currentQuestion, 
-    nextQuestion, 
-    previousQuestion, 
-    currentQuestionIndex, 
-    totalQuestions, 
-    handleAnswerSelected,
-    disableMultipleChoiceMode 
-  } = useMultipleChoice();
-  
-  const { 
-    isPresentationMode, 
-    currentSlide, 
-    totalSlides, 
-    nextSlide, 
-    previousSlide, 
-    exitPresentation 
-  } = usePresentation();
+  // Get presentation and multiple choice contexts
+  const { isPresentationMode, exitPresentation } = usePresentation();
+  const { isMultipleChoiceMode, disableMultipleChoiceMode } = useMultipleChoice();
 
   const searchParams = useSearchParams();
   const router = useRouter();
   const chatCollapsedSearchParam = searchParams.get(CHAT_COLLAPSED_QUERY_PARAM);
   
-  // Listen for mode changes from Thread component
-  useEffect(() => {
-    const handlePresentationModeChange = (event: PresentationModeChangeEvent) => {
-      console.log("🔍 Presentation mode changed to:", event.detail.isActive);
-      setPresentationMode(event.detail.isActive);
-    };
-    
-    const handleMultipleChoiceModeChange = (event: MultipleChoiceModeChangeEvent) => {
-      console.log("🔍 Multiple choice mode changed to:", event.detail.isActive);
-      setMultipleChoiceMode(event.detail.isActive);
-    };
-    
-    const handleExitMultipleChoice = () => {
-      disableMultipleChoiceMode();
-    };
-    
-    window.addEventListener(
-      'presentationModeChange', 
-      handlePresentationModeChange as EventListener
-    );
-    
-    window.addEventListener(
-      'multipleChoiceModeChange',
-      handleMultipleChoiceModeChange as EventListener
-    );
-    
-    window.addEventListener(
-      'exitMultipleChoice',
-      handleExitMultipleChoice as EventListener
-    );
-    
-    return () => {
-      window.removeEventListener(
-        'presentationModeChange', 
-        handlePresentationModeChange as EventListener
-      );
-      
-      window.removeEventListener(
-        'multipleChoiceModeChange',
-        handleMultipleChoiceModeChange as EventListener
-      );
-      
-      window.removeEventListener(
-        'exitMultipleChoice',
-        handleExitMultipleChoice as EventListener
-      );
-    };
-  }, [disableMultipleChoiceMode]);
-  
-  // Update from context state to local state for synchronization
-  useEffect(() => {
-    setPresentationMode(isPresentationMode);
-  }, [isPresentationMode]);
-  
-  useEffect(() => {
-    setMultipleChoiceMode(isMultipleChoiceMode);
-  }, [isMultipleChoiceMode]);
-  
+  // Update chat collapse state from URL
   useEffect(() => {
     try {
       if (chatCollapsedSearchParam) {
@@ -153,6 +63,7 @@ export function CanvasComponent() {
     }
   }, [chatCollapsedSearchParam, router, searchParams]);
 
+  // Quick start function for new artifacts
   const handleQuickStart = (
     type: "text" | "code",
     language?: ProgrammingLanguageOptions
@@ -195,12 +106,10 @@ export function CanvasComponent() {
 
   // Render function for the main content area
   const renderMainContent = () => {
-    if (multipleChoiceMode) {
-      return <IntegratedMultipleChoiceView />;
-    } else if (presentationMode) {
+    if (isPresentationMode) {
       return (
         <div className="h-full w-full flex flex-col bg-white presentation-panel relative">
-          {/* Exit presentation button */}
+          {/* Header with title and exit button */}
           <div className="flex justify-between items-center p-2 border-b bg-white">
             <h1 className="text-xl font-semibold">Presentation on Carvedilol</h1>
             <button
@@ -212,27 +121,30 @@ export function CanvasComponent() {
           </div>
           
           {/* Presentation content */}
-          <div className="flex-1 overflow-hidden border-r border-gray-200">
+          <div className="flex-1 overflow-hidden">
             <SlideDeck />
           </div>
-          
-          {/* Navigation controls */}
-          <div className="flex justify-between p-2 bg-gray-100">
-            <button 
-              className="px-4 py-2 bg-blue-500 text-white rounded disabled:bg-gray-300"
-              onClick={previousSlide}
-              disabled={currentSlide <= 1}
+        </div>
+      );
+    } else if (isMultipleChoiceMode) {
+      // We're handling quiz within the presentation now, so this should 
+      // never be reached, but we'll keep it for backward compatibility
+      return (
+        <div className="h-full w-full flex flex-col bg-white presentation-panel relative">
+          <div className="flex justify-between items-center p-2 border-b bg-white">
+            <h1 className="text-xl font-semibold">Quiz Mode</h1>
+            <button
+              className="bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-3 rounded-md shadow-md"
+              onClick={() => {
+                disableMultipleChoiceMode();
+                if (isPresentationMode) exitPresentation();
+              }}
             >
-              Previous
+              Exit Quiz
             </button>
-            <span className="self-center">Page {currentSlide} of {totalSlides}</span>
-            <button 
-              className="px-4 py-2 bg-blue-500 text-white rounded disabled:bg-gray-300"
-              onClick={nextSlide}
-              disabled={currentSlide >= totalSlides}
-            >
-              Next
-            </button>
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <SlideDeck />
           </div>
         </div>
       );

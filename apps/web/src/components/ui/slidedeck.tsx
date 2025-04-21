@@ -1,19 +1,93 @@
-import React from "react";
+// components/ui/slidedeck.tsx
+import React, { useEffect, useRef, useState } from 'react';
+import { usePresentation } from '@/contexts/PresentationContext';
+import { useMultipleChoice } from '@/contexts/MultipleChoiceContext';
+import MultipleChoicePanel from './MultipleChoicePanel';
 
-interface SlideDeckProps {
-  // You can add props to customize the presentation if needed
-}
-
-const SlideDeck: React.FC<SlideDeckProps> = () => {
+const SlideDeck: React.FC = () => {
+  const { 
+    currentSlide, 
+    totalSlides
+  } = usePresentation();
+  
+  const {
+    getQuestionsBySlide,
+    handleAnswerSelected,
+    isQuestionAnswered,
+    setAnsweredQuestion
+  } = useMultipleChoice();
+  
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  // State to track the current question for this slide
+  const [currentSlideQuestion, setCurrentSlideQuestion] = useState<any>(null);
+  
+  // When currentSlide changes, update the iframe
+  useEffect(() => {
+    if (iframeRef.current && iframeRef.current.contentWindow) {
+      iframeRef.current.contentWindow.postMessage({
+        type: 'goToSlide',
+        slideNumber: currentSlide
+      }, '*');
+    }
+    
+    // Get the first question for this slide (we only want to show one question per slide)
+    const slideQuestions = getQuestionsBySlide(currentSlide);
+    if (slideQuestions.length > 0) {
+      setCurrentSlideQuestion(slideQuestions[0]);
+    } else {
+      setCurrentSlideQuestion(null);
+    }
+  }, [currentSlide, getQuestionsBySlide]);
+  
+  const handleQuestionAnswer = (choiceId: string, isCorrect: boolean) => {
+    if (currentSlideQuestion) {
+      // Mark the question as answered
+      setAnsweredQuestion(currentSlideQuestion.id);
+      // Call the handler
+      handleAnswerSelected(choiceId, isCorrect);
+    }
+  };
+  
+  // Check if the current question is already answered
+  const isCurrentQuestionAnswered = currentSlideQuestion ? 
+    isQuestionAnswered(currentSlideQuestion.id) : false;
+  
   return (
-    <div className="w-full h-full flex flex-col bg-white slidedeck-component">
-      <iframe
-        src="/presentation.html"
-        title="Open Canvas Presentation"
-        className="w-full h-full border-none flex-1 presentation-iframe"
-        allow="fullscreen"
-        style={{ backgroundColor: 'white' }}
-      />
+    <div className="h-full flex flex-col">
+      {/* Slide viewer (takes up most of the space) */}
+      <div className={`flex-1 ${currentSlideQuestion ? 'border-b border-gray-200' : ''}`}>
+        <iframe 
+          ref={iframeRef}
+          src={`/presentation.html?slide=${currentSlide}`}
+          className="w-full h-full border-none presentation-iframe"
+          title="Carvedilol Presentation"
+        />
+      </div>
+      
+      {/* Question panel (only shown if there's a question for this slide) */}
+      {currentSlideQuestion && (
+        <div className="bg-gray-50 border-t border-gray-200">
+          <MultipleChoicePanel
+            question={{
+              id: currentSlideQuestion.id,
+              text: currentSlideQuestion.text,
+              choices: currentSlideQuestion.choices.map((choice: any) => ({
+                id: choice.id,
+                text: choice.text,
+                isCorrect: choice.isCorrect
+              }))
+            }}
+            onAnswerSelected={handleQuestionAnswer}
+            isAnswered={isCurrentQuestionAnswered}
+            slideNumber={currentSlide}
+          />
+        </div>
+      )}
+      
+      {/* Simple page indicator */}
+      <div className="py-2 px-4 text-center bg-gray-100 border-t border-gray-200">
+        Page {currentSlide} of {totalSlides}
+      </div>
     </div>
   );
 };
