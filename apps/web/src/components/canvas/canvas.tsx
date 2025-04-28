@@ -73,6 +73,34 @@ export function CanvasComponent() {
     }
   }, [chatCollapsedSearchParam, router, searchParams]);
 
+  // NEW EFFECT: Ensure AI messages in presentation mode are rendered
+  useEffect(() => {
+    if (isPresentationMode && graphData.messages.length > 0) {
+      // Get the last message
+      const lastMessage = graphData.messages[graphData.messages.length - 1];
+      
+      // Check if it's an AI message and hasn't been processed for UI updates
+      if (lastMessage instanceof AIMessage && 
+          !lastMessage.additional_kwargs?._canvasProcessed) {
+        
+        console.log("🔍 Canvas detected new AI message in presentation mode:", lastMessage.id);
+        
+        // Mark the message as processed by canvas component
+        if (!lastMessage.additional_kwargs) {
+          lastMessage.additional_kwargs = {};
+        }
+        lastMessage.additional_kwargs._canvasProcessed = true;
+        
+        // Force a UI update by creating a new message array
+        // This is a workaround to ensure the UI refreshes
+        setTimeout(() => {
+          graphData.setMessages([...graphData.messages]);
+          console.log("🔍 Canvas forced message re-render");
+        }, 10);
+      }
+    }
+  }, [isPresentationMode, graphData.messages, graphData.setMessages]);
+
   // Watch for messages that might indicate question requests
   useEffect(() => {
     if (isPresentationMode && graphData.messages.length > 0) {
@@ -392,6 +420,29 @@ export function CanvasComponent() {
                           : msg
                       ));
                     }
+                  }
+
+                  // Force a UI update for presentation mode messages
+                  if (message instanceof AIMessage && !message.additional_kwargs._processed) {
+                    message.additional_kwargs._processed = true;
+                    
+                    // Force re-render by creating a new message object with a timestamp
+                    setTimeout(() => {
+                      const refreshedMessage = new AIMessage({
+                        ...message,
+                        content: message.content,
+                        additional_kwargs: {
+                          ...message.additional_kwargs,
+                          _refreshTimestamp: Date.now()
+                        }
+                      });
+                      
+                      graphData.setMessages(prevMessages => 
+                        prevMessages.map(msg => msg.id === message.id ? refreshedMessage : msg)
+                      );
+                      
+                      console.log("🔍 Message refreshed in onMessageProcessed");
+                    }, 10);
                   }
                 }
               }}

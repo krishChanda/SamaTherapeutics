@@ -11468,6 +11468,7 @@ __metadata:
     eslint-plugin-no-instanceof: ^1.0.1
     eslint-plugin-prettier: ^4.2.1
     prettier: ^3.3.3
+    prosemirror-view: 1.29.0
     spectacle: ^10.1.8
     tsx: ^4.19.1
     turbo: latest
@@ -12072,6 +12073,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"prosemirror-model@npm:^1.16.0":
+  version: 1.25.1
+  resolution: "prosemirror-model@npm:1.25.1"
+  dependencies:
+    orderedmap: ^2.0.0
+  checksum: 335b78b8ea5076d32795e141bf6ce9ee4fcf1fa252c7f939f8bc4137bacde263f6537b1bc53c0f21d1302969893d0351399c9489e25da1b8ea22571bf7b20b6e
+  languageName: node
+  linkType: hard
+
 "prosemirror-schema-basic@npm:^1.2.3":
   version: 1.2.3
   resolution: "prosemirror-schema-basic@npm:1.2.3"
@@ -12136,6 +12146,17 @@ __metadata:
   dependencies:
     prosemirror-model: ^1.21.0
   checksum: 93b0c03affe579b0995b0c1e9a0bd54a1d7147ea1508ffc283ed41ee463e8ebc7a58b3b24ce5cc5fac542176f1fbd5c2ba1f32dd27037b1e0e33074b3997899f
+  languageName: node
+  linkType: hard
+
+"prosemirror-view@npm:1.29.0":
+  version: 1.29.0
+  resolution: "prosemirror-view@npm:1.29.0"
+  dependencies:
+    prosemirror-model: ^1.16.0
+    prosemirror-state: ^1.0.0
+    prosemirror-transform: ^1.1.0
+  checksum: 6d4807a113551d8561eff4881bd2dbf11e4b2e6acbc6a35043b7158be8386246de2ca3ef8387f28ad95f63ea74925d9a82701819db67f6b5b631fd2c8c95fca5
   languageName: node
   linkType: hard
 

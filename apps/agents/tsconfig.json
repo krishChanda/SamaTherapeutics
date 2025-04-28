@@ -2,7 +2,8 @@
   "extends": "@tsconfig/recommended",
   "compilerOptions": {
     "outDir": "./dist",
-    "rootDir": "./src",
+    // Remove or modify rootDir to allow files outside this directory
+    // "rootDir": "./src",
     "baseUrl": ".",
     "target": "ES2021",
     "lib": [
@@ -22,13 +23,20 @@
     "useDefineForClassFields": true,
     "strictPropertyInitialization": false,
     "allowJs": true,
-    "strict": true
+    "strict": true,
+    "paths": {
+      "@sama/shared": ["../../packages/shared/src"],
+      "@sama/shared/*": ["../../packages/shared/src/*"]
+    }
   },
   "include": [
-    "src/"
+    "src/",
+    // Also include the shared module files in compilation
+    "../../packages/shared/src/**/*"
   ],
   "exclude": [
     "node_modules/",
     "dist"
   ]
-}
+ }
+ 

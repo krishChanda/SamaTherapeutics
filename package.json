@@ -34,6 +34,7 @@
     "@langchain/core": "^0.3.38"
   },
   "dependencies": {
+    "prosemirror-view": "1.29.0",
     "spectacle": "^10.1.8"
   }
 }
