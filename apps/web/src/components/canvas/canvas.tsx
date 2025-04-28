@@ -31,6 +31,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import SlideDeck from "../ui/slidedeck";
 import { useMultipleChoice } from "@/contexts/MultipleChoiceContext";
 import { usePresentation } from '@/contexts/PresentationContext';
+import { HumanMessage, AIMessage } from "@langchain/core/messages";
 
 export function CanvasComponent() {
   const { graphData } = useGraphContext();
@@ -42,8 +43,17 @@ export function CanvasComponent() {
   const [chatCollapsed, setChatCollapsed] = useState<boolean>(false);
   
   // Get presentation and multiple choice contexts
-  const { isPresentationMode, exitPresentation } = usePresentation();
+  const { 
+    isPresentationMode, 
+    exitPresentation,
+    currentSlide,
+    getSlideContent
+  } = usePresentation();
+  
   const { isMultipleChoiceMode, disableMultipleChoiceMode } = useMultipleChoice();
+  
+  // State to track whether to show a question in presentation mode
+  const [showQuestion, setShowQuestion] = useState<boolean>(false);
 
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -62,6 +72,80 @@ export function CanvasComponent() {
       router.replace(`?${queryParams.toString()}`, { scroll: false });
     }
   }, [chatCollapsedSearchParam, router, searchParams]);
+
+  // Watch for messages that might indicate question requests
+  useEffect(() => {
+    if (isPresentationMode && graphData.messages.length > 0) {
+      // Check the most recent message
+      const recentMessages = [...graphData.messages];
+      const lastMessage = recentMessages[recentMessages.length - 1];
+      
+      // Try to access content safely
+      const messageContent = typeof lastMessage?.content === 'string' 
+        ? lastMessage.content 
+        : '';
+      
+      // Check for user responses indicating they want a question
+      if (lastMessage instanceof HumanMessage && (
+          messageContent.toLowerCase().includes('yes') ||
+          messageContent.toLowerCase().includes('sure') ||
+          messageContent.toLowerCase().includes('question') ||
+          messageContent.toLowerCase().includes('test') ||
+          messageContent.toLowerCase().includes('quiz')
+        )) {
+        console.log("User has requested a question");
+        setShowQuestion(true);
+      }
+      
+      // Check for user responses indicating they want to skip the question
+      else if (lastMessage instanceof HumanMessage && (
+          messageContent.toLowerCase().includes('no') ||
+          messageContent.toLowerCase().includes('skip') ||
+          messageContent.toLowerCase().includes('next slide') ||
+          messageContent.toLowerCase().includes('continue') ||
+          messageContent.toLowerCase().includes('move on')
+        )) {
+        console.log("User has declined the question");
+        setShowQuestion(false);
+      }
+      
+      // If the message contains the hidden marker, always show question
+      else if (messageContent.includes("<!-- SHOW_QUESTION -->") || 
+          messageContent.includes("Let's test your knowledge")) {
+        console.log("Question marker found, showing question");
+        setShowQuestion(true);
+        
+        // Clean up the message content to remove the marker if possible
+        if (typeof lastMessage.content === 'string' && lastMessage instanceof AIMessage) {
+          // Create a new AIMessage with the marker removed
+          const cleanedContent = lastMessage.content.replace("<!-- SHOW_QUESTION -->", "");
+          
+          if (cleanedContent !== lastMessage.content) {
+            // Update the message with cleaned content
+            graphData.setMessages(prevMessages => prevMessages.map(msg => 
+              msg.id === lastMessage.id 
+                ? new AIMessage({
+                    ...lastMessage,
+                    content: cleanedContent
+                  }) 
+                : msg
+            ));
+          }
+        }
+      }
+      
+      // If we're changing slides, hide the question panel initially
+      else if (lastMessage instanceof HumanMessage && (
+          messageContent.toLowerCase().includes('go to slide') ||
+          messageContent.toLowerCase().includes('slide') ||
+          messageContent.toLowerCase().includes('next') ||
+          messageContent.toLowerCase().includes('previous')
+        )) {
+        console.log("Slide change requested, hiding question panel");
+        setShowQuestion(false);
+      }
+    }
+  }, [graphData.messages, isPresentationMode, graphData.setMessages]);
 
   // Quick start function for new artifacts
   const handleQuickStart = (
@@ -122,7 +206,7 @@ export function CanvasComponent() {
           
           {/* Presentation content */}
           <div className="flex-1 overflow-hidden">
-            <SlideDeck />
+            <SlideDeck showQuestion={showQuestion} />
           </div>
         </div>
       );
@@ -144,7 +228,7 @@ export function CanvasComponent() {
             </button>
           </div>
           <div className="flex-1 overflow-hidden">
-            <SlideDeck />
+            <SlideDeck showQuestion={true} />
           </div>
         </div>
       );
@@ -216,6 +300,7 @@ export function CanvasComponent() {
           />
         </NoSSRWrapper>
       )}
+
       {!chatCollapsed && chatStarted && (
         <ResizablePanel
           defaultSize={25}
@@ -265,6 +350,51 @@ export function CanvasComponent() {
               setChatStarted={setChatStarted}
               hasChatStarted={chatStarted}
               handleQuickStart={handleQuickStart}
+              onMessageProcessed={(message) => {
+                // If in presentation mode, pass the current slide content
+                if (isPresentationMode && message && typeof message.content === 'string') {
+                  // Add slide content to AI context if needed
+                  if (message.additional_kwargs === undefined) {
+                    message.additional_kwargs = {};
+                  }
+                  
+                  // Add presentation mode flag
+                  message.additional_kwargs.presentationMode = true;
+                  
+                  // Add current slide information
+                  if (!message.additional_kwargs.currentSlideContent) {
+                    message.additional_kwargs.currentSlideContent = getSlideContent(currentSlide);
+                    message.additional_kwargs.currentSlide = currentSlide;
+                  }
+                  
+                  // Check for question prompts
+                  if (message.content.includes("SHOW_QUESTION") ||
+                      message.content.includes("Would you like to test your knowledge")) {
+                    console.log("Message contains question prompt");
+                  }
+                  
+                  // Remove any artifact references if in presentation mode
+                  if (message instanceof AIMessage && 
+                      message.content.includes("viewing the") && 
+                      message.content.includes("artifact")) {
+                    const cleanedContent = message.content.replace(/It seems you are currently viewing the .* artifact[\.\s\S]*?(?=\n\n|$)/, "");
+                    
+                    if (cleanedContent !== message.content) {
+                      console.log("🔍 Cleaning up artifact reference in message");
+                      
+                      // Update the message with cleaned content
+                      graphData.setMessages(prevMessages => prevMessages.map(msg => 
+                        msg.id === message.id 
+                          ? new AIMessage({
+                              ...message,
+                              content: cleanedContent
+                            }) 
+                          : msg
+                      ));
+                    }
+                  }
+                }
+              }}
             />
           </NoSSRWrapper>
         </ResizablePanel>

@@ -401,13 +401,32 @@ export const MultipleChoiceProvider: React.FC<{children: React.ReactNode}> = ({ 
     return question?.slideNumber || 1;
   }, []);
   
-  // Enhanced handle answer selection with progress tracking
+  // Enhanced handle answer selection with improved context information
   const handleAnswerSelected = useCallback((choiceId: string, isCorrect: boolean) => {
     // Create a message ID
     const messageId = uuidv4();
     
-    // Get the current question
-    const question = quizQuestions[currentQuestionIndex];
+    // Find the question being answered based on current slide
+    let question: Question | undefined;
+    
+    // First try to find questions for the current slide
+    const slideQuestions = getQuestionsBySlide(currentSlide);
+    
+    if (slideQuestions.length > 0) {
+      // Try to find the current question in the slide questions
+      const slideQuestionIndex = currentQuestionIndex % slideQuestions.length;
+      question = slideQuestions[slideQuestionIndex];
+    }
+    
+    // If we couldn't find a question for the current slide, fall back to the current index
+    if (!question) {
+      question = quizQuestions[currentQuestionIndex];
+    }
+    
+    if (!question) {
+      console.error("No question found for answer selection");
+      return;
+    }
     
     // Mark the question as answered
     setAnsweredQuestion(question.id);
@@ -417,24 +436,43 @@ export const MultipleChoiceProvider: React.FC<{children: React.ReactNode}> = ({ 
       incrementCorrectAnswers();
     }
     
-    // Create a message about the answer
+    // Find the selected choice text
+    const selectedChoice = question.choices.find(c => c.id === choiceId);
+    
+    // Create a message about the answer that includes all needed context
+    const answerContent = `Selected answer for question: "${question.text}". 
+Choice: ${selectedChoice ? selectedChoice.text : choiceId} (${isCorrect ? 'correct' : 'incorrect'}).
+This question is about slide ${question.slideNumber}, which discusses: ${question.slideNumber === 2 ? 'heart failure statistics' : 
+                                question.slideNumber === 3 ? 'carvedilol\'s mechanism of action and indications' :
+                                question.slideNumber === 4 ? 'COPERNICUS trial results' :
+                                question.slideNumber === 5 ? 'carvedilol\'s effects across patient subgroups' :
+                                question.slideNumber === 6 ? 'carvedilol\'s safety profile' :
+                                question.slideNumber === 7 ? 'carvedilol dosing recommendations' : 'carvedilol information'}`;
+    
+    // Create a human message for the UI
     const answerMessage = new HumanMessage({
-      content: `Selected answer for question ${currentQuestionIndex + 1}: ${choiceId} (${isCorrect ? 'correct' : 'incorrect'})`,
+      content: answerContent,
       id: messageId,
     });
     
     // Update messages state
     setMessages(prevMessages => [...prevMessages, answerMessage]);
     
-    // Stream message with the answer
+    // Stream message with the answer and additional context
     streamMessage({
       messages: [{
         role: "human",
-        content: `Selected answer for question: "${question.text}". Choice: ${choiceId} (${isCorrect ? 'correct' : 'incorrect'})`,
+        content: answerContent,
         id: messageId
-      }]
+      }],
+      presentationMode: true,
+      presentationSlide: question.slideNumber,
+      isQuestionAnswer: true,
+      questionSlide: question.slideNumber,
+      questionId: question.id,
+      questionText: question.text
     } as any);
-  }, [currentQuestionIndex, setMessages, streamMessage, setAnsweredQuestion, incrementCorrectAnswers]);
+  }, [currentQuestionIndex, currentSlide, getQuestionsBySlide, incrementCorrectAnswers, setAnsweredQuestion, setMessages, streamMessage]);
 
   // Get the current question
   const currentQuestion = currentQuestionIndex >= 0 && currentQuestionIndex < quizQuestions.length 

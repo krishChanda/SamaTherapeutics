@@ -133,6 +133,7 @@ export const OpenCanvasGraphAnnotation = Annotation.Root({
    * The search results to include in context.
    */
   webSearchResults: Annotation<SearchResult[] | undefined>,
+  // In your state.ts file, within the OpenCanvasGraphAnnotation definition
   /**
    * Whether the application is in presentation mode.
    */
@@ -141,6 +142,22 @@ export const OpenCanvasGraphAnnotation = Annotation.Root({
    * The current slide number in presentation mode.
    */
   presentationSlide: Annotation<number | undefined>,
+  /**
+   * Whether to show a question in presentation mode.
+   */
+  showPresentationQuestion: Annotation<boolean | undefined>,
+  /**
+   * Whether to ask the user if they want to see a question.
+   */
+  shouldAskForQuestion: Annotation<boolean | undefined>,
+  /**
+   * Whether the current message is a content question about the slide.
+   */
+  isContentQuestion: Annotation<boolean | undefined>,
+  /**
+   * The content of the current slide.
+   */
+  slideContent: Annotation<string | undefined>,
 });
 
 export type OpenCanvasGraphReturnType = Partial<

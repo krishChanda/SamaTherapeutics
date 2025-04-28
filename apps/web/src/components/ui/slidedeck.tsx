@@ -4,7 +4,11 @@ import { usePresentation } from '@/contexts/PresentationContext';
 import { useMultipleChoice } from '@/contexts/MultipleChoiceContext';
 import MultipleChoicePanel from './MultipleChoicePanel';
 
-const SlideDeck: React.FC = () => {
+interface SlideDeckProps {
+  showQuestion?: boolean;
+}
+
+const SlideDeck: React.FC<SlideDeckProps> = ({ showQuestion = false }) => {
   const { 
     currentSlide, 
     totalSlides
@@ -30,7 +34,7 @@ const SlideDeck: React.FC = () => {
       }, '*');
     }
     
-    // Get the first question for this slide (we only want to show one question per slide)
+    // Get the first question for this slide
     const slideQuestions = getQuestionsBySlide(currentSlide);
     if (slideQuestions.length > 0) {
       setCurrentSlideQuestion(slideQuestions[0]);
@@ -43,7 +47,7 @@ const SlideDeck: React.FC = () => {
     if (currentSlideQuestion) {
       // Mark the question as answered
       setAnsweredQuestion(currentSlideQuestion.id);
-      // Call the handler
+      // Call the handler with the choice information
       handleAnswerSelected(choiceId, isCorrect);
     }
   };
@@ -54,8 +58,8 @@ const SlideDeck: React.FC = () => {
   
   return (
     <div className="h-full flex flex-col">
-      {/* Slide viewer (takes up most of the space) */}
-      <div className={`flex-1 ${currentSlideQuestion ? 'border-b border-gray-200' : ''}`}>
+      {/* Slide viewer (takes up most or all of the space) */}
+      <div className={`flex-1 ${showQuestion && currentSlideQuestion ? 'border-b border-gray-200' : ''}`}>
         <iframe 
           ref={iframeRef}
           src={`/presentation.html?slide=${currentSlide}`}
@@ -64,8 +68,8 @@ const SlideDeck: React.FC = () => {
         />
       </div>
       
-      {/* Question panel (only shown if there's a question for this slide) */}
-      {currentSlideQuestion && (
+      {/* Question panel (only shown if there's a question for this slide AND showQuestion is true) */}
+      {showQuestion && currentSlideQuestion && (
         <div className="bg-gray-50 border-t border-gray-200">
           <MultipleChoicePanel
             question={{

@@ -1,4 +1,4 @@
-// components/PresentationMode.tsx
+
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { usePresentation } from '@/contexts/PresentationContext';

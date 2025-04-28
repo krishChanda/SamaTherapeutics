@@ -21,10 +21,8 @@ import { useThreadContext } from "@/contexts/ThreadProvider";
 import { useAssistantContext } from "@/contexts/AssistantContext";
 import { usePresentation } from '@/contexts/PresentationContext';
 import { useMultipleChoice } from '@/contexts/MultipleChoiceContext';
-import SlideDeck from "../ui/slidedeck";
 import { HumanMessage, AIMessage } from '@langchain/core/messages';
 import { v4 as uuidv4 } from "uuid";
-import { GraphInput } from "@opencanvas/shared/types";
 
 const ThreadScrollToBottom: FC = () => {
   return (
@@ -51,6 +49,7 @@ export interface ThreadProps {
   switchSelectedThreadCallback: (thread: ThreadType) => void;
   searchEnabled: boolean;
   setChatCollapsed: (c: boolean) => void;
+  onMessageProcessed?: (message: any) => void;
 }
 
 export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
@@ -78,7 +77,10 @@ export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
   // State for presentation mode
   const [showPresentation, setShowPresentation] = useState<boolean>(false);
   const [lastProcessedSlide, setLastProcessedSlide] = useState<number>(0);
+  const [showQuestion, setShowQuestion] = useState<boolean>(false);
+  const [isAnsweringQuestion, setIsAnsweringQuestion] = useState<boolean>(false);
   const isProcessingSlide = useRef<boolean>(false);
+  const isProcessingMessage = useRef<boolean>(false);
   
   // Get presentation and multiple choice contexts
   const { 
@@ -88,7 +90,9 @@ export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
     nextSlide, 
     previousSlide, 
     goToSlide,
-    currentSlide 
+    currentSlide,
+    getQuestionsForSlide,
+    getSlideContent
   } = usePresentation();
   
   const { isMultipleChoiceMode, toggleMultipleChoiceMode, disableMultipleChoiceMode } = useMultipleChoice();
@@ -136,6 +140,9 @@ export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
         return;
       }
       
+      // Hide question panel when changing slides
+      setShowQuestion(false);
+      setIsAnsweringQuestion(false);
       isProcessingSlide.current = true;
       
       // Create a message ID
@@ -163,10 +170,22 @@ export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
       const slideContent = getSlideContent(currentSlide);
       const aiMessageId = uuidv4();
       
-      // Create an AI message
+      // Check if we have questions for this slide
+      const hasQuestions = getQuestionsForSlide(currentSlide).length > 0;
+      
+      // Create an AI message with prompt for questions if available
+      const questionPrompt = hasQuestions ? 
+        "\n\nWould you like to test your knowledge with a question about this topic?" : 
+        "\n\nLet me know if you'd like to go to another slide or if you have any questions about this content.";
+      
       const aiMessage = new AIMessage({
-        content: `【Slide${currentSlide}】\n${slideContent}`,
+        content: `【Slide ${currentSlide}】\n${slideContent}${questionPrompt}`,
         id: aiMessageId,
+        additional_kwargs: {
+          currentSlideContent: slideContent,
+          currentSlide: currentSlide,
+          presentationMode: true
+        }
       });
       
       // Immediately add the AI message to the UI
@@ -174,36 +193,145 @@ export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
         setMessages(prevMessages => [...prevMessages, aiMessage]);
       }, 100); // Small timeout to ensure human message appears first
       
-      // Still make the official request to maintain state
-      streamMessage({
-        messages: [slideChangeMessage],
+      // Create a base message object with just the messages property
+      const messageData = {
+        messages: [slideChangeMessage]
+      };
+      
+      // Cast the streamMessage function and extended input to any type to bypass type checking
+      (streamMessage as any)({
+        ...messageData,
         presentationMode: true,
-        presentationSlide: currentSlide
-      } as GraphInput).finally(() => {
+        presentationSlide: currentSlide,
+        slideContent
+      }).finally(() => {
         // Update the last processed slide and reset the processing flag
         setLastProcessedSlide(currentSlide);
         isProcessingSlide.current = false;
       });
     }
-  }, [currentSlide, isPresentationMode, lastProcessedSlide, setMessages, streamMessage]);
+  }, [currentSlide, isPresentationMode, lastProcessedSlide, setMessages, streamMessage, getQuestionsForSlide, getSlideContent]);
+  
+  // Watch for messages that might indicate question requests or contain "artifact" references
+  useEffect(() => {
+    if (messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      
+      // Process the message
+      if (props.onMessageProcessed) {
+        props.onMessageProcessed(lastMessage);
+      }
+      
+      // If in presentation mode, check for and clean up unwanted artifact references
+      if (isPresentationMode && lastMessage && typeof lastMessage.content === 'string') {
+        const content = lastMessage.content;
+        
+        // Remove any artifact references in presentation mode
+        if (content.includes("viewing the") && 
+            content.includes("artifact") && 
+            lastMessage instanceof AIMessage) {
+            
+          // Create cleaned content without the artifact reference
+          const cleanedContent = content.replace(/It seems you are currently viewing the .* artifact[\.\s\S]*?(?=\n\n|$)/, "");
+          
+          if (cleanedContent !== content) {
+            console.log("🔍 Cleaning up artifact reference in message");
+            
+            // Update the message with cleaned content
+            setMessages(prevMessages => prevMessages.map(msg => 
+              msg.id === lastMessage.id 
+                ? new AIMessage({
+                    ...lastMessage,
+                    content: cleanedContent
+                  }) 
+                : msg
+            ));
+          }
+        }
+        
+        // Check for question indicators
+        if (content.includes("<!-- SHOW_QUESTION -->") || 
+            content.includes("Let's test your knowledge")) {
+          console.log("🔍 Question marker found in AI message");
+          setShowQuestion(true);
+        }
+      }
+    }
+  }, [messages, props.onMessageProcessed, isPresentationMode, setMessages]);
 
-  // Helper function to get slide content directly
-  const getSlideContent = (slideNumber: number): string => {
-    const SLIDES_CONTENT: { [key: number]: string } = {
-      1: "Thank you for joining me for a discussion on advances in severe heart failure. Are you ready to begin the presentation?",
-      2: "Heart failure remains a significant and growing burden for patients and the healthcare system. Despite advances, more than 6.7 million Americans are diagnosed yearly, and the individual lifetime risk has increased to 1 in 4. Heart failure is responsible for more than 425,000 deaths and 5 million hospitalizations each year. Proper treatment with evidence based regimens is critical to provide patients the best possible outcome.",
-      3: "Sympathetic activation in heart failure results in cardiac myocyte injury, resulting in cardiac remodeling, which further increases sympathetic activation and drives worsening outcomes. Carvedilol is a third generation non-selective betablocker with alpha-1 blockade, that provides comprehensive adrenergic blockade in heart failure. Carvedilol is indicated for the treatment of mild to severe chronic heart failure of ischemic or cardiomyopathic origin, usually in the addition to diuretics, ACE inhibitors, and digitalis, to increase survival and reduce the risk of hospitalization.",
-      4: "Carvedilol is the only beta-blocker prospectively studied in patients with severe heart failure. In a double blind trial (COPERNICUS), 2,289 subjects with heart failure and an ejection fraction of less than 25% were randomized to placebo or carvedilol. Patients on Carvedilol demonstrated a 35% reduction in the primary end point of all-cause mortality. The number of patients needed to treat with carvedilol to save 1 life was only 14. Patients treated with Carvedilol also had significantly less hospitalizations and a significant improvement in global assessments.",
-      5: "The impact on all-cause mortality was maintained in all sub-groups examined. Importantly, the favorable effects were apparent even in the highest risk patients, namely, those with recent or recurrent cardiac decompensation.",
-      6: "Carvedilol has been evaluated for safety in more then 4,500 subjects worldwide in mild, moderate and severe heart failure. The safety profile was consistent with the expected pharmacologic effects of the drug and health status of the patients. Across the broad clinical trial experience, dizziness was the only cause of discontinuation greater than 1% and occurring more often with carvedilol (1.3% vs .6%).",
-      7: "The starting dose for carvedilol in heart failure is 3.125 mg twice daily. The dose should then be increased to 6.25, 12.5 and 25 mg twice daily over intervals of at least 2 weeks. Lower doses should be maintained if higher doses are not tolerated. Patients should be instructed to take carvedilol with food."
-    };
+  // Enhanced function to determine if the message is likely a question about slide content
+  const isSlideContentQuestion = (content: string) => {
+    const normalizedContent = content.toLowerCase().trim();
     
-    return SLIDES_CONTENT[slideNumber] || "Slide content not available.";
+    // For presentation mode, almost all user inputs that aren't navigation commands
+    // should be treated as content questions to improve context-awareness
+    if (isPresentationMode) {
+      // Check if it's a navigation command or standard presentation command
+      const isNavigationCommand = 
+        normalizedContent.includes('go to slide') ||
+        normalizedContent.includes('next slide') ||
+        normalizedContent === 'next' ||
+        normalizedContent.includes('previous slide') ||
+        normalizedContent === 'previous' ||
+        normalizedContent === 'back' ||
+        normalizedContent.includes('exit presentation') ||
+        normalizedContent === 'exit' ||
+        normalizedContent.includes('start presentation') ||
+        // Standard yes/no responses to "Would you like to test your knowledge?"
+        ((normalizedContent === 'yes' || 
+          normalizedContent === 'no' ||
+          normalizedContent === 'sure' ||
+          normalizedContent === 'ok') && 
+         normalizedContent.length < 5);
+      
+      // If it's not a navigation command, treat it as a content question
+      return !isNavigationCommand;
+    }
+    
+    // If not in presentation mode, return false
+    return false;
   };
 
-  // Render the LangSmith trace link
-  useLangSmithLinkToolUI();
+  // Function to check if a message is a presentation command vs. a content question
+  const isPresentationCommand = (content: string): boolean => {
+    // Normalize the message
+    const normalizedContent = content.toLowerCase().trim();
+    
+    // Navigation commands
+    if (normalizedContent.includes("go to slide") || 
+        normalizedContent.includes("next slide") || 
+        normalizedContent === "next" ||
+        normalizedContent.includes("previous slide") || 
+        normalizedContent === "previous" || 
+        normalizedContent === "back" ||
+        normalizedContent.includes("exit presentation") || 
+        normalizedContent === "exit" ||
+        normalizedContent.includes("start presentation") ||
+        normalizedContent.match(/^slide \d+$/i) !== null) {
+      return true;
+    }
+    
+    // Quiz-related commands
+    if ((normalizedContent.includes("test my knowledge") || 
+         normalizedContent.includes("quiz") ||
+         normalizedContent.includes("ask me a question") ||
+         normalizedContent.includes("would like a question")) &&
+        normalizedContent.length < 50) {
+      return true;
+    }
+    
+    // Simple responses to quiz prompts (only if they're short)
+    if ((normalizedContent.includes("yes") || 
+         normalizedContent.includes("no") ||
+         normalizedContent.includes("skip") ||
+         normalizedContent.includes("continue")) && 
+        normalizedContent.length < 15) {
+      return true;
+    }
+    
+    // If none of the above conditions are met, it's likely a content question
+    return false;
+  };
 
   // Function to handle presentation commands from text input
   const handlePresentationCommands = (content: string) => {
@@ -277,37 +405,101 @@ export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
 
   // Function to process a message before sending it to the AI
   const processMessage = async (content: string) => {
-    // Check if this is a presentation command
-    if (handlePresentationCommands(content)) {
-      // Handled by command processor
+    // Prevent processing multiple messages at once
+    if (isProcessingMessage.current) {
+      console.log("Already processing a message, skipping");
       return true;
     }
     
-    // Create a message ID
-    const messageId = uuidv4();
+    isProcessingMessage.current = true;
     
-    // Create a HumanMessage for UI purposes
-    const humanMessageForUI = new HumanMessage({
-      content: content,
-      id: messageId,
-    });
-    
-    // Add the message to the chat
-    setMessages(prevMessages => [...prevMessages, humanMessageForUI]);
-    
-    // Format for the backend
-    const messageObject = {
-      role: "human",
-      content: content,
-      id: messageId
-    };
-    
-    // Stream message to get response
-    await streamMessage({
-      messages: [messageObject]
-    } as GraphInput);
-    
-    return true;
+    try {
+      // Create a message ID
+      const generatedMessageId = uuidv4();
+      
+      // Create a HumanMessage for UI purposes
+      const humanMessageForUI = new HumanMessage({
+        content: content,
+        id: generatedMessageId,
+      });
+      
+      // Add the message to the chat
+      setMessages(prevMessages => [...prevMessages, humanMessageForUI]);
+      
+      // Check if this is a presentation command
+      if (handlePresentationCommands(content)) {
+        // Handled by command processor
+        return true;
+      }
+      
+      // For presentation mode, check if this is a presentation command
+      if (isPresentationMode && isPresentationCommand(content)) {
+        // Handle presentation control message with presentation mode enabled
+        const messageObject = {
+          role: "human",
+          content: content,
+          id: generatedMessageId
+        };
+        
+        // Create a base message object
+        const messageData = {
+          messages: [messageObject]
+        };
+        
+        // Cast to any to bypass type checking
+        await (streamMessage as any)({
+          ...messageData,
+          presentationMode: true,
+          presentationSlide: currentSlide,
+          slideContent: getSlideContent(currentSlide)
+        });
+      } else if (isPresentationMode) {
+        // This is a content question in presentation mode
+        console.log("🔍 Processing as content question while in presentation mode");
+        
+        const messageObject = {
+          role: "human",
+          content: content,
+          id: generatedMessageId
+        };
+        
+        // Get all presentation content for context
+        const allPresentationContent = {
+          1: "Introduction: Thank you for joining me for a discussion on advances in severe heart failure. Are you ready to begin the presentation?",
+          2: "Heart Failure Burden: Heart failure remains a significant and growing burden for patients and the healthcare system. Despite advances, more than 6.7 million Americans are diagnosed yearly, and the individual lifetime risk has increased to 1 in 4. Heart failure is responsible for more than 425,000 deaths and 5 million hospitalizations each year. Proper treatment with evidence based regimens is critical to provide patients the best possible outcome.",
+          3: "Mechanism & Indication of Carvedilol: Sympathetic activation in heart failure results in cardiac myocyte injury, resulting in cardiac remodeling, which further increases sympathetic activation and drives worsening outcomes. Carvedilol is a third generation non-selective betablocker with alpha-1 blockade, that provides comprehensive adrenergic blockade in heart failure. Carvedilol is indicated for the treatment of mild to severe chronic heart failure of ischemic or cardiomyopathic origin, usually in the addition to diuretics, ACE inhibitors, and digitalis, to increase survival and reduce the risk of hospitalization.",
+          4: "COPERNICUS Trial Results: Carvedilol is the only beta-blocker prospectively studied in patients with severe heart failure. In a double blind trial (COPERNICUS), 2,289 subjects with heart failure and an ejection fraction of less than 25% were randomized to placebo or carvedilol. Patients on Carvedilol demonstrated a 35% reduction in the primary end point of all-cause mortality. The number of patients needed to treat with carvedilol to save 1 life was only 14. Patients treated with Carvedilol also had significantly less hospitalizations and a significant improvement in global assessments.",
+          5: "Subgroup Effects: The impact on all-cause mortality was maintained in all sub-groups examined. Importantly, the favorable effects were apparent even in the highest risk patients, namely, those with recent or recurrent cardiac decompensation.",
+          6: "Safety Profile: Carvedilol has been evaluated for safety in more then 4,500 subjects worldwide in mild, moderate and severe heart failure. The safety profile was consistent with the expected pharmacologic effects of the drug and health status of the patients. Across the broad clinical trial experience, dizziness was the only cause of discontinuation greater than 1% and occurring more often with carvedilol (1.3% vs .6%).",
+          7: "Dosing Guidelines: The starting dose for carvedilol in heart failure is 3.125 mg twice daily. The dose should then be increased to 6.25, 12.5 and 25 mg twice daily over intervals of at least 2 weeks. Lower doses should be maintained if higher doses are not tolerated. Patients should be instructed to take carvedilol with food."
+        };
+        
+        // For content questions about the slide, include the slide content as context
+        await (streamMessage as any)({
+          messages: [messageObject],
+          presentationMode: true,
+          presentationSlide: currentSlide,
+          slideContent: getSlideContent(currentSlide),
+          presentationContent: allPresentationContent,
+          isContentQuestion: true  // Flag to indicate this is a content question
+        });
+      } else {
+        // Regular message processing (not in presentation mode)
+        const messageObject = {
+          role: "human",
+          content: content,
+          id: generatedMessageId
+        };
+        
+        await streamMessage({
+          messages: [messageObject]
+        });
+      }
+      
+      return true;
+    } finally {
+      isProcessingMessage.current = false;
+    }
   };
 
   const handleNewSession = async () => {
@@ -342,6 +534,8 @@ export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
     
     // Reset slide tracking
     setLastProcessedSlide(0);
+    setShowQuestion(false);
+    setIsAnsweringQuestion(false);
   };
 
   // Enhanced toggle presentation function
@@ -355,6 +549,8 @@ export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
       setShowPresentation(false);
       // Reset slide tracking
       setLastProcessedSlide(0);
+      setShowQuestion(false);
+      setIsAnsweringQuestion(false);
     } else {
       startPresentation();
       setShowPresentation(true);
@@ -369,11 +565,13 @@ export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
         startPresentation();
         setShowPresentation(true);
       }
-      // Enable quiz mode
+      // Enable quiz mode and show questions
       toggleMultipleChoiceMode();
+      setShowQuestion(true);
     } else {
       // Just disable quiz mode, keep presentation if it's active
       disableMultipleChoiceMode();
+      setShowQuestion(false);
     }
   };
 

@@ -1,5 +1,4 @@
 // components/ui/MultipleChoicePanel.tsx
-
 import React, { useState, useEffect } from 'react';
 import { cn } from "@/lib/utils";
 
@@ -38,6 +37,7 @@ const MultipleChoicePanel: React.FC<MultipleChoicePanelProps> = ({
   // Reset state when question changes or isAnswered changes
   useEffect(() => {
     setShowFeedback(isAnswered);
+    setSelectedChoice(undefined);
   }, [question?.id, isAnswered]);
   
   if (!question) {

@@ -18,6 +18,8 @@ import { graph as webSearchGraph } from "../web-search/index.js";
 import { createAIMessageFromWebResults } from "../utils.js";
 import { presentationMode } from "./nodes/presentationMode.js";
 
+// In your index.ts file
+
 const routeNode = (state: typeof OpenCanvasGraphAnnotation.State) => {
   // If we're in presentation mode, route to the presentation node
   if (state.presentationMode) {

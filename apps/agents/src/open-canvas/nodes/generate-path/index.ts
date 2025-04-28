@@ -41,6 +41,49 @@ function getMessageContent(message: BaseMessage): string {
   return '';
 }
 
+// Update the isPresentationCommand and parseNavigationCommand functions in generate-path/index.ts
+
+// Function to check if a message is a presentation command vs. a content question
+function isPresentationCommand(message: string): boolean {
+  // Normalize the message
+  const normalizedMsg = message.toLowerCase().trim();
+  
+  // Navigation commands
+  if (normalizedMsg.includes("go to slide") || 
+      normalizedMsg.includes("next slide") || 
+      normalizedMsg === "next" ||
+      normalizedMsg.includes("previous slide") || 
+      normalizedMsg === "previous" || 
+      normalizedMsg === "back" ||
+      normalizedMsg.includes("exit presentation") || 
+      normalizedMsg === "exit" ||
+      normalizedMsg.includes("start presentation") ||
+      normalizedMsg.match(/^slide \d+$/i) !== null) {
+    return true;
+  }
+  
+  // Quiz-related commands
+  if ((normalizedMsg.includes("test my knowledge") || 
+       normalizedMsg.includes("quiz") ||
+       normalizedMsg.includes("ask me a question") ||
+       normalizedMsg.includes("would like a question")) &&
+      normalizedMsg.length < 50) {
+    return true;
+  }
+  
+  // Simple responses to quiz prompts (only if they're short)
+  if ((normalizedMsg.includes("yes") || 
+       normalizedMsg.includes("no") ||
+       normalizedMsg.includes("skip") ||
+       normalizedMsg.includes("continue")) && 
+      normalizedMsg.length < 15) {
+    return true;
+  }
+  
+  // If none of the above conditions are met, it's likely a content question
+  return false;
+}
+
 // Function to parse navigation commands in the user's message
 function parseNavigationCommand(message: string, currentSlide: number, totalSlides: number = 7): number | null {
   // Normalize the message
@@ -108,9 +151,13 @@ export async function generatePath(
   // If presentationMode is passed directly in the streamMessage call, use it
   const explicitPresentationMode = incomingData?.presentationMode;
   const explicitPresentationSlide = incomingData?.presentationSlide;
+  const showPresentationQuestion = incomingData?.showPresentationQuestion;
+  const isContentQuestion = incomingData?.isContentQuestion || false;
   
   console.log("🔍 Explicit presentation mode:", explicitPresentationMode);
   console.log("🔍 Explicit presentation slide:", explicitPresentationSlide);
+  console.log("🔍 Show presentation question:", showPresentationQuestion);
+  console.log("🔍 Is content question:", isContentQuestion);
   
   // If explicit presentation mode flags are provided, use them
   if (explicitPresentationMode !== undefined) {
@@ -119,7 +166,9 @@ export async function generatePath(
     return {
       next: "presentationModeHandler",
       presentationMode: true,
-      presentationSlide: explicitPresentationSlide || state.presentationSlide || 1
+      presentationSlide: explicitPresentationSlide || state.presentationSlide || 1,
+      showPresentationQuestion: showPresentationQuestion || false,
+      isContentQuestion: isContentQuestion || false
     };
   }
   
@@ -127,7 +176,10 @@ export async function generatePath(
   if (state.presentationMode) {
     console.log("🔍 Already in presentation mode");
     
-    // Check for navigation commands in the latest message
+    // Check if we should show a question
+    const showQuestion = incomingData?.showPresentationQuestion || false;
+    
+    // Get the latest message
     if (state._messages.length > 0) {
       const latestMessage = state._messages[state._messages.length - 1];
       const messageContent = typeof latestMessage.content === 'string' 
@@ -137,6 +189,36 @@ export async function generatePath(
           : '';
       
       console.log("🔍 Latest message in generatePath:", messageContent);
+      
+      // Check if this is a user question rather than a presentation command
+      if (!isPresentationCommand(messageContent) && !showQuestion && !isContentQuestion) {
+        console.log("🔍 Content question detected - routing to generateArtifact");
+        
+        // Route to generateArtifact for regular questions
+        return {
+          next: "generateArtifact",
+          // Turn off presentation mode for this message processing
+          presentationMode: false
+        };
+      }
+      
+      // Check if the user requested a question
+      if (
+        messageContent.toLowerCase().includes('question') || 
+        messageContent.toLowerCase().includes('quiz') ||
+        messageContent.toLowerCase().includes('test') ||
+        messageContent.toLowerCase().includes('yes') ||
+        messageContent.toLowerCase().includes('sure') ||
+        messageContent.toLowerCase().includes('ask me a question')
+      ) {
+        console.log("🔍 Question requested in generatePath!");
+        return {
+          next: "presentationModeHandler",
+          presentationMode: true,
+          presentationSlide: state.presentationSlide || 1,
+          showPresentationQuestion: true
+        };
+      }
       
       // Parse for navigation commands
       const currentSlide = state.presentationSlide || 1;
@@ -148,17 +230,28 @@ export async function generatePath(
         return {
           next: "presentationModeHandler",
           presentationMode: true,
-          presentationSlide: parsedSlideNumber
+          presentationSlide: parsedSlideNumber,
+          showPresentationQuestion: false
         };
       }
     }
     
-    // If no navigation command was detected, just route to the presentation handler
+    // If we reach here and isContentQuestion is true, still route to presentationModeHandler
+    if (isContentQuestion) {
+      return {
+        next: "presentationModeHandler",
+        presentationMode: true,
+        presentationSlide: state.presentationSlide || 1,
+        isContentQuestion: true
+      };
+    }
+    
+    // Default routing for presentation mode
     return {
       next: "presentationModeHandler",
       presentationMode: true,
-      // Keep the current slide if it exists, otherwise default to 1
-      presentationSlide: state.presentationSlide || 1
+      presentationSlide: state.presentationSlide || 1,
+      showPresentationQuestion: showQuestion
     };
   }
 

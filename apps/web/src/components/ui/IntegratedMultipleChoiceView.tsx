@@ -236,7 +236,7 @@ const IntegratedMultipleChoiceView: React.FC = () => {
               className="h-full"
               slideNumber={currentSlide}
               isAnswered={isCurrentQuestionAnswered}
-              readOnly={isCurrentQuestionAnswered}
+              //readOnly={isCurrentQuestionAnswered}
             />
           ) : (
             <div className="flex items-center justify-center h-full">
