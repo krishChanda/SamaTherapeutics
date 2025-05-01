@@ -137,7 +137,7 @@ INSTRUCTIONS:
            safeIncludes(userContent, 'next') ||
            safeIncludes(userContent, 'previous') ||
            safeIncludes(userContent, 'go to')) {
-     responseContent = `【Slide ${slideNumber}】\n\n${providedSlideContent}\n\nWould you like to test your knowledge with a question about this topic, or shall we continue to the next slide?`;
+     responseContent = `Would you like to test your knowledge with a question about this topic, or shall we continue to the next slide?`;
    }
    // If the user declines a question and wants to move on
    else if (safeIncludes(userContent, 'no') ||
@@ -148,11 +148,11 @@ INSTRUCTIONS:
    }
    // Default response
    else {
-     responseContent = `【Slide ${slideNumber}】\n\n${providedSlideContent}\n\nWould you like to test your knowledge with a question about this topic, or shall we continue to the presentation?`;
+     responseContent = `Would you like to test your knowledge with a question about this topic, or shall we continue to the presentation?`;
    }
  } catch (error) {
    console.error("Error in presentationMode:", error);
-   responseContent = `【Slide ${slideNumber}】\n\n${providedSlideContent}\n\nWould you like to test your knowledge with a question about this topic, or shall we continue to the presentation?`;
+   responseContent = `Would you like to test your knowledge with a question about this topic, or shall we continue to the presentation?`;
  }
   // Create an AI message with the response
  const aiMessage = new AIMessage({

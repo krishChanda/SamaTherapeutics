@@ -1,5 +1,5 @@
 
-
+// PresentationMode.tsx
 import React, { useEffect, useState, useCallback } from 'react';
 import { usePresentation } from '@/contexts/PresentationContext';
 import SlideDeck from './slidedeck';
@@ -245,15 +245,18 @@ const PresentationMode: React.FC = () => {
 
   return (
     <div className="h-full w-full flex flex-col bg-white presentation-panel relative">
-      {/* Header with title and exit button */}
-      <div className="flex justify-between items-center p-2 border-b bg-white">
-        <h1 className="text-xl font-semibold">Presentation on Carvedilol</h1>
-        <button
-          className="bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-3 rounded-md shadow-md"
-          onClick={exitPresentation}
-        >
-          Exit Presentation
-        </button>
+      <div className="flex items-center justify-center p-2 border-b bg-white relative h-14">
+        {/* Centered title */}
+        <h1 className="text-xl font-semibold text-center">Presentation on Carvedilol</h1>
+        
+                <div className="absolute right-4">
+          <button
+            className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-1 px-3 rounded-md shadow-sm text-sm"
+            onClick={exitPresentation}
+          >
+            Exit Presentation
+          </button>
+        </div>
       </div>
       
       {/* Main content: Presentation container */}

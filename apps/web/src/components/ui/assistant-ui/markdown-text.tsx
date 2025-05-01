@@ -77,7 +77,7 @@ const MarkdownTextImpl = () => {
         p: ({ node: _node, className, ...props }) => (
           <p
             className={cn(
-              "mb-5 mt-5 leading-7 first:mt-0 last:mb-0",
+              "mb-5 mt-5 leading-7 first:mt-0 last:mb-0 rounded-3xl px-5 py-2.5",
               className
             )}
             {...props}

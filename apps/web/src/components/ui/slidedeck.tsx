@@ -89,9 +89,9 @@ const SlideDeck: React.FC<SlideDeckProps> = ({ showQuestion = false }) => {
       )}
       
       {/* Simple page indicator */}
-      <div className="py-2 px-4 text-center bg-gray-100 border-t border-gray-200">
+      {/* <div className="py-2 px-4 text-center bg-gray-100 border-t border-gray-200">
         Page {currentSlide} of {totalSlides}
-      </div>
+      </div> */}
     </div>
   );
 };

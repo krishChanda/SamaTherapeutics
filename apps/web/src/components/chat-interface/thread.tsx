@@ -274,7 +274,8 @@ export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
        "\n\nLet me know if you'd like to go to another slide or if you have any questions about this content.";
     
      const aiMessage = new AIMessage({
-       content: `【Slide ${currentSlide}】\n${slideContent}${questionPrompt}`,
+       content: `${slideContent}${questionPrompt}`,
+       // 【Slide ${currentSlide}】\n${slideContent}${questionPrompt}
        id: aiMessageId,
        additional_kwargs: {
          presentationMode: true,
@@ -728,17 +729,17 @@ export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
          console.error("Error sending navigation message:", error);
          
          // Fallback: Add an AI message directly to keep the UI responsive
-         const fallbackMessage = new AIMessage({
-           content: `【Slide ${slideNumber}】\n\n${slideContent}\n\nWould you like to test your knowledge with a question about this topic, or shall we continue to the presentation?`,
-           id: uuidv4(),
-           additional_kwargs: {
-             presentationMode: true,
-             currentSlide: slideNumber,
-             fallback: true
-           }
-         });
+        //  const fallbackMessage = new AIMessage({
+        //    content: `【Slide ${slideNumber}】\n\n${slideContent}\n\nWould you like to test your knowledge with a question about this topic, or shall we continue to the presentation?`,
+        //    id: uuidv4(),
+        //    additional_kwargs: {
+        //      presentationMode: true,
+        //      currentSlide: slideNumber,
+        //      fallback: true
+        //    }
+        //  });
          
-         setMessages(prevMessages => [...prevMessages, fallbackMessage]);
+        //  setMessages(prevMessages => [...prevMessages, fallbackMessage]);
        });
      } catch (error) {
        console.error("Error navigating to slide:", error);
@@ -784,7 +785,7 @@ export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
                  <Presentation className={`${showPresentation ? 'text-blue-600' : 'text-gray-600'}`} />
                </TooltipIconButton>
               
-               <TooltipIconButton
+               {/* <TooltipIconButton
                  tooltip="Collapse Chat"
                  variant="ghost"
                  className="w-8 h-8"
@@ -792,7 +793,7 @@ export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
                  onClick={() => props.setChatCollapsed(true)}
                >
                  <PanelRightOpen className="text-gray-600" />
-               </TooltipIconButton>
+               </TooltipIconButton> */}
                <TooltipIconButton
                  tooltip="New chat"
                  variant="ghost"
