@@ -106,63 +106,94 @@ export function ContentComposerChatInterfaceComponent(
    return false;
  };
 
- // Enhanced message processor for presentation mode
- const enhancedMessageProcessor = useCallback((message: any) => {
-   // Skip if no message
-   if (!message) return;
-   
-   console.log("🔍 Message processor called with:", message?.id);
-   
-   // Apply original processor if available
-   if (props.onMessageProcessed) {
-     props.onMessageProcessed(message);
-   }
-   
-   // Special handling for presentation mode messages
-   if (isPresentationMode && message instanceof AIMessage) {
-     console.log("🔍 Processing presentation mode message:", message.id);
-     
-     // Check if already processed by this component
-     if (message.additional_kwargs?._composerProcessed) {
-       return;
-     }
-     
-     // Mark as processed
-     if (!message.additional_kwargs) {
-       message.additional_kwargs = {};
-     }
-     message.additional_kwargs._composerProcessed = true;
-     
-     // Update slide content info if missing
-     if (!message.additional_kwargs.currentSlideContent && currentSlide) {
-       message.additional_kwargs.currentSlideContent = getSlideContent(currentSlide);
-       message.additional_kwargs.currentSlide = currentSlide;
-       message.additional_kwargs.presentationMode = true;
-     }
-     
-     // Force a UI update by refreshing the message
-     setTimeout(() => {
-       setMessages(prevMessages => {
-         return prevMessages.map(m => {
-           if (m.id === message.id) {
-             // Create a new message object to force React to detect the change
-             return new AIMessage({
-               ...message,
-               additional_kwargs: {
-                 ...message.additional_kwargs,
-                 _refreshed: true,
-                 _refreshTimestamp: Date.now()
-               }
-             });
-           }
-           return m;
-         });
-       });
-       
-       console.log("🔍 Content composer forced message refresh");
-     }, 50);
-   }
- }, [isPresentationMode, currentSlide, getSlideContent, setMessages, props.onMessageProcessed]);
+ // Update the enhancedMessageProcessor in content-composer.tsx
+
+// Enhanced message processor for presentation mode
+const enhancedMessageProcessor = useCallback((message: any) => {
+  // Skip if no message
+  if (!message) return;
+  
+  console.log("🔍 Message processor called with:", message?.id);
+  
+  // Apply original processor if available
+  if (props.onMessageProcessed) {
+    props.onMessageProcessed(message);
+  }
+  
+  // Special handling for presentation mode messages
+  if (isPresentationMode && message instanceof AIMessage) {
+    console.log("🔍 Processing presentation mode message:", message.id);
+    
+    // Check if already processed by this component
+    if (message.additional_kwargs?._composerProcessed) {
+      return;
+    }
+    
+    // Mark as processed
+    if (!message.additional_kwargs) {
+      message.additional_kwargs = {};
+    }
+    message.additional_kwargs._composerProcessed = true;
+    
+    // Update slide content info if missing
+    if (!message.additional_kwargs.currentSlideContent && currentSlide) {
+      message.additional_kwargs.currentSlideContent = getSlideContent(currentSlide);
+      message.additional_kwargs.currentSlide = currentSlide;
+      message.additional_kwargs.presentationMode = true;
+    }
+    
+    // FIXED: Check for HTML comments and replace with metadata flag
+    if (typeof message.content === 'string' && message.content.includes("<!-- SHOW_QUESTION -->")) {
+      // Update the message to remove HTML comment and set flag in metadata
+      const cleanedContent = message.content.replace("<!-- SHOW_QUESTION -->", "");
+      message.additional_kwargs.showQuestion = true;
+      
+      // Update the message content to remove the comment
+      setTimeout(() => {
+        setMessages(prevMessages => {
+          return prevMessages.map(m => {
+            if (m.id === message.id) {
+              return new AIMessage({
+                ...message,
+                content: cleanedContent,
+                additional_kwargs: {
+                  ...message.additional_kwargs,
+                  _refreshed: true,
+                  _refreshTimestamp: Date.now()
+                }
+              });
+            }
+            return m;
+          });
+        });
+        
+        console.log("🔍 Cleaned up HTML comment in message");
+      }, 50);
+    }
+    
+    // Force a UI update by refreshing the message
+    setTimeout(() => {
+      setMessages(prevMessages => {
+        return prevMessages.map(m => {
+          if (m.id === message.id) {
+            // Create a new message object to force React to detect the change
+            return new AIMessage({
+              ...message,
+              additional_kwargs: {
+                ...message.additional_kwargs,
+                _refreshed: true,
+                _refreshTimestamp: Date.now()
+              }
+            });
+          }
+          return m;
+        });
+      });
+      
+      console.log("🔍 Content composer forced message refresh");
+    }, 50);
+  }
+}, [isPresentationMode, currentSlide, getSlideContent, setMessages, props.onMessageProcessed]);
 
 
  async function onNew(message: AppendMessage): Promise<void> {

@@ -285,77 +285,77 @@ export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
    }
  }, [currentSlide, isPresentationMode, lastProcessedSlide, setMessages, streamMessage, getQuestionsForSlide]);
 
- // Watch for messages that might indicate question requests or contain "artifact" references
- useEffect(() => {
-   if (messages.length > 0) {
-     const lastMessage = messages[messages.length - 1];
+ // Update this section in thread.tsx where it processes messages
+// Find the useEffect that watches for messages that might indicate question requests
+
+// Watch for messages that might indicate question requests or contain unwanted content
+useEffect(() => {
+  if (messages.length > 0) {
+    const lastMessage = messages[messages.length - 1];
     
-     // Process the message
-     if (props.onMessageProcessed) {
-       props.onMessageProcessed(lastMessage);
-     }
+    // Process the message
+    if (props.onMessageProcessed) {
+      props.onMessageProcessed(lastMessage);
+    }
     
-     // If in presentation mode, check for and clean up unwanted artifact references
-     if (isPresentationMode && lastMessage && typeof lastMessage.content === 'string') {
-       const content = lastMessage.content;
+    // Check message content and metadata
+    if (lastMessage && typeof lastMessage.content === 'string') {
+      const content = lastMessage.content;
+      const additionalKwargs = lastMessage.additional_kwargs || {};
       
-       // Remove any artifact references in presentation mode
-       if (content.includes("viewing the") &&
-           content.includes("artifact") &&
-           lastMessage instanceof AIMessage) {
+      // If in presentation mode, check for and clean up unwanted artifact references
+      if (isPresentationMode && lastMessage instanceof AIMessage) {
+        // Remove any artifact references in presentation mode
+        if (content.includes("viewing the") && content.includes("artifact")) {
+          // Create cleaned content without the artifact reference
+          const cleanedContent = content.replace(/It seems you are currently viewing the .* artifact[\.\s\S]*?(?=\n\n|$)/, "");
           
-         // Create cleaned content without the artifact reference
-         const cleanedContent = content.replace(/It seems you are currently viewing the .* artifact[\.\s\S]*?(?=\n\n|$)/, "");
+          if (cleanedContent !== content) {
+            console.log("🔍 Cleaning up artifact reference in message");
+            
+            // Update the message with cleaned content
+            setMessages(prevMessages => prevMessages.map(msg =>
+              msg.id === lastMessage.id
+                ? new AIMessage({
+                    ...lastMessage,
+                    content: cleanedContent
+                  })
+                : msg
+            ));
+          }
+        }
         
-         if (cleanedContent !== content) {
-           console.log("🔍 Cleaning up artifact reference in message");
+        // Also remove "I've outlined" responses for direct answers
+        if (content.includes("I've outlined") || content.includes("I outlined")) {
+          // Create cleaned content without the "I've outlined" phrase
+          const cleanedContent = content
+            .replace(/I've outlined the significant burdens of heart failure for you\.\s+/i, "")
+            .replace(/I outlined the significant burdens of heart failure for you\.\s+/i, "");
           
-           // Update the message with cleaned content
-           setMessages(prevMessages => prevMessages.map(msg =>
-             msg.id === lastMessage.id
-               ? new AIMessage({
-                   ...lastMessage,
-                   content: cleanedContent
-                 })
-               : msg
-           ));
-         }
-       }
-      
-       // Also remove "I've outlined" responses for direct answers
-       if (lastMessage instanceof AIMessage &&
-           (content.includes("I've outlined") ||
-            content.includes("I outlined"))) {
+          if (cleanedContent !== content) {
+            console.log("🔍 Cleaning up 'I've outlined' phrasing");
+            
+            // Update the message with cleaned content
+            setMessages(prevMessages => prevMessages.map(msg =>
+              msg.id === lastMessage.id
+                ? new AIMessage({
+                    ...lastMessage,
+                    content: cleanedContent
+                  })
+                : msg
+            ));
+          }
+        }
         
-         // Create cleaned content without the "I've outlined" phrase
-         const cleanedContent = content
-           .replace(/I've outlined the significant burdens of heart failure for you\.\s+/i, "")
-           .replace(/I outlined the significant burdens of heart failure for you\.\s+/i, "");
-        
-         if (cleanedContent !== content) {
-           console.log("🔍 Cleaning up 'I've outlined' phrasing");
-          
-           // Update the message with cleaned content
-           setMessages(prevMessages => prevMessages.map(msg =>
-             msg.id === lastMessage.id
-               ? new AIMessage({
-                   ...lastMessage,
-                   content: cleanedContent
-                 })
-               : msg
-           ));
-         }
-       }
-      
-       // Check for question indicators
-       if (content.includes("<!-- SHOW_QUESTION -->") ||
-           content.includes("Let's test your knowledge")) {
-         console.log("🔍 Question marker found in AI message");
-         setShowQuestion(true);
-       }
-     }
-   }
- }, [messages, props.onMessageProcessed, isPresentationMode, setMessages]);
+        // FIXED: Check for the question flag in additional_kwargs instead of HTML comment
+        if (additionalKwargs.showQuestion === true) {
+          console.log("🔍 Question flag found in message metadata");
+          setShowQuestion(true);
+        }
+      }
+    }
+  }
+}, [messages, props.onMessageProcessed, isPresentationMode, setMessages]);
 
 
  // Enhanced function to determine if the message is likely a question about slide content

@@ -101,79 +101,70 @@ export function CanvasComponent() {
     }
   }, [isPresentationMode, graphData.messages, graphData.setMessages]);
 
-  // Watch for messages that might indicate question requests
-  useEffect(() => {
-    if (isPresentationMode && graphData.messages.length > 0) {
-      // Check the most recent message
-      const recentMessages = [...graphData.messages];
-      const lastMessage = recentMessages[recentMessages.length - 1];
-      
-      // Try to access content safely
-      const messageContent = typeof lastMessage?.content === 'string' 
-        ? lastMessage.content 
-        : '';
-      
-      // Check for user responses indicating they want a question
-      if (lastMessage instanceof HumanMessage && (
-          messageContent.toLowerCase().includes('yes') ||
-          messageContent.toLowerCase().includes('sure') ||
-          messageContent.toLowerCase().includes('question') ||
-          messageContent.toLowerCase().includes('test') ||
-          messageContent.toLowerCase().includes('quiz')
-        )) {
-        console.log("User has requested a question");
-        setShowQuestion(true);
-      }
-      
-      // Check for user responses indicating they want to skip the question
-      else if (lastMessage instanceof HumanMessage && (
-          messageContent.toLowerCase().includes('no') ||
-          messageContent.toLowerCase().includes('skip') ||
-          messageContent.toLowerCase().includes('next slide') ||
-          messageContent.toLowerCase().includes('continue') ||
-          messageContent.toLowerCase().includes('move on')
-        )) {
-        console.log("User has declined the question");
-        setShowQuestion(false);
-      }
-      
-      // If the message contains the hidden marker, always show question
-      else if (messageContent.includes("<!-- SHOW_QUESTION -->") || 
-          messageContent.includes("Let's test your knowledge")) {
-        console.log("Question marker found, showing question");
-        setShowQuestion(true);
-        
-        // Clean up the message content to remove the marker if possible
-        if (typeof lastMessage.content === 'string' && lastMessage instanceof AIMessage) {
-          // Create a new AIMessage with the marker removed
-          const cleanedContent = lastMessage.content.replace("<!-- SHOW_QUESTION -->", "");
-          
-          if (cleanedContent !== lastMessage.content) {
-            // Update the message with cleaned content
-            graphData.setMessages(prevMessages => prevMessages.map(msg => 
-              msg.id === lastMessage.id 
-                ? new AIMessage({
-                    ...lastMessage,
-                    content: cleanedContent
-                  }) 
-                : msg
-            ));
-          }
-        }
-      }
-      
-      // If we're changing slides, hide the question panel initially
-      else if (lastMessage instanceof HumanMessage && (
-          messageContent.toLowerCase().includes('go to slide') ||
-          messageContent.toLowerCase().includes('slide') ||
-          messageContent.toLowerCase().includes('next') ||
-          messageContent.toLowerCase().includes('previous')
-        )) {
-        console.log("Slide change requested, hiding question panel");
-        setShowQuestion(false);
-      }
+  // Update this section in canvas.tsx - the useEffect hook that checks for questions
+// Find this useEffect in canvas.tsx that processes messages and update it
+
+useEffect(() => {
+  if (isPresentationMode && graphData.messages.length > 0) {
+    // Check the most recent message
+    const recentMessages = [...graphData.messages];
+    const lastMessage = recentMessages[recentMessages.length - 1];
+    
+    // Try to access content safely
+    const messageContent = typeof lastMessage?.content === 'string' 
+      ? lastMessage.content 
+      : '';
+    
+    // Get additional keywords
+    const additionalKwargs = lastMessage && 'additional_kwargs' in lastMessage 
+      ? lastMessage.additional_kwargs || {}
+      : {};
+    
+    // Check for user responses indicating they want a question
+    if (lastMessage instanceof HumanMessage && (
+        messageContent.toLowerCase().includes('yes') ||
+        messageContent.toLowerCase().includes('sure') ||
+        messageContent.toLowerCase().includes('question') ||
+        messageContent.toLowerCase().includes('test') ||
+        messageContent.toLowerCase().includes('quiz')
+      )) {
+      console.log("User has requested a question");
+      setShowQuestion(true);
     }
-  }, [graphData.messages, isPresentationMode, graphData.setMessages]);
+    
+    // Check for user responses indicating they want to skip the question
+    else if (lastMessage instanceof HumanMessage && (
+        messageContent.toLowerCase().includes('no') ||
+        messageContent.toLowerCase().includes('skip') ||
+        messageContent.toLowerCase().includes('next slide') ||
+        messageContent.toLowerCase().includes('continue') ||
+        messageContent.toLowerCase().includes('move on')
+      )) {
+      console.log("User has declined the question");
+      setShowQuestion(false);
+    }
+    
+    // FIXED: Check for the showQuestion flag in additional_kwargs instead of HTML comment
+    else if (lastMessage instanceof AIMessage && 
+             additionalKwargs.showQuestion === true) {
+      console.log("Question flag found in message metadata, showing question");
+      setShowQuestion(true);
+      
+      // No need to clean up the message content since we're not using HTML comments anymore
+    }
+    
+    // If we're changing slides, hide the question panel initially
+    else if (lastMessage instanceof HumanMessage && (
+        messageContent.toLowerCase().includes('go to slide') ||
+        messageContent.toLowerCase().includes('slide') ||
+        messageContent.toLowerCase().includes('next') ||
+        messageContent.toLowerCase().includes('previous')
+      )) {
+      console.log("Slide change requested, hiding question panel");
+      setShowQuestion(false);
+    }
+  }
+}, [graphData.messages, isPresentationMode, graphData.setMessages]);
 
   // Quick start function for new artifacts
   const handleQuickStart = (
