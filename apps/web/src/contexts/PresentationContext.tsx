@@ -251,31 +251,6 @@ export function PresentationProvider({ children }: { children: ReactNode }) {
       detail: { isActive: true } 
     }));
     
-    // Create a message ID we can reuse
-    const messageId = uuidv4();
-    
-    // Create a message object in the expected format
-    const initialMessage = {
-      role: "human",
-      content: "Start carvedilol presentation",
-      id: messageId
-    };
-    
-    // Create a HumanMessage for UI purposes
-    const humanMessageForUI = new HumanMessage({
-      content: "Start carvedilol presentation",
-      id: messageId,
-    });
-    
-    // Update messages state
-    setMessages(prevMessages => [...prevMessages, humanMessageForUI]);
-    
-    // Stream message with presentation mode enabled
-    streamMessage({
-      messages: [initialMessage],
-      presentationSlide: 1,
-      slideContent: getSlideContent(1)
-    } as any);
   };
 
   // Exit the presentation

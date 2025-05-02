@@ -262,34 +262,6 @@ export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
      const slideContent = SLIDES_CONTENT[currentSlide];
      const slideContextData = SLIDE_CONTEXT[currentSlide];
     
-     // Directly create an AI response with the slide content for immediate display
-     const aiMessageId = uuidv4();
-    
-     // Check if we have questions for this slide
-     const hasQuestions = getQuestionsForSlide(currentSlide).length > 0;
-    
-     // Create an AI message with prompt for questions if available
-     const questionPrompt = hasQuestions ?
-       "\n\nWould you like to test your knowledge with a question about this topic?" :
-       "\n\nLet me know if you'd like to go to another slide or if you have any questions about this content.";
-    
-     const aiMessage = new AIMessage({
-       content: `${slideContent}${questionPrompt}`,
-       // 【Slide ${currentSlide}】\n${slideContent}${questionPrompt}
-       id: aiMessageId,
-       additional_kwargs: {
-         presentationMode: true,
-         currentSlide: currentSlide,
-         currentSlideContent: slideContent,
-         slideContext: slideContextData?.details || "",
-         slideTitle: slideContextData?.title || ""
-       }
-     });
-    
-     // Immediately add the AI message to the UI
-     setTimeout(() => {
-       setMessages(prevMessages => [...prevMessages, aiMessage]);
-     }, 100); // Small timeout to ensure human message appears first
     
      // Create a base message object with just the messages property
      const messageData = {

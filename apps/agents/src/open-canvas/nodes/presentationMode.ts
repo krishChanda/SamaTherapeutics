@@ -5,7 +5,6 @@ import { AIMessage } from "@langchain/core/messages";
 import { v4 as uuidv4 } from "uuid";
 import { SLIDES_CONTENT, SLIDE_CONTEXT, RISK_CONTEXT } from '@sama/shared';
 
-
 /**
 * Handler for presentation mode.
 * This node processes slides and questions in presentation mode,
@@ -35,10 +34,20 @@ export const presentationMode = async (
  const safeIncludes = (content: string | null | undefined, search: string): boolean => {
    return !!content && content.toLowerCase().includes(search.toLowerCase());
  };
-  // Create a response based on the message and slide
+  
+ // Helper function to check if questions are available for the current slide
+ // This assumes we can access the questions from the context or another source
+ const hasQuestionsForSlide = (slideNum: number): boolean => {
+   // If we have access to slide questions, check them
+   // Alternatively, we can use a hardcoded approach based on known slides with questions
+   return [2, 3, 4, 5, 6, 7].includes(slideNum); // All content slides have questions
+ };
+  
+ // Create a response based on the message and slide
  let responseContent = "";
  let shouldShowQuestion = false;
-  try {
+  
+ try {
    // If this is a content question about the slide, provide a detailed answer
    if (isContentQuestion) {
      console.log("🔍 Handling content question about slide:", userContent);
@@ -58,25 +67,19 @@ export const presentationMode = async (
      // Create a comprehensive system prompt with all slide content and extra context
      const systemPrompt = `You are an AI assistant explaining a medical presentation on Carvedilol and heart failure.
 
-
 CURRENT PRESENTATION CONTEXT:
 You are currently on Slide ${slideNumber}: ${SLIDES_CONTENT[slideNumber]}
-
 
 ADDITIONAL SLIDE CONTEXT:
 ${SLIDE_CONTEXT[slideNumber]?.title || ''}: ${SLIDE_CONTEXT[slideNumber]?.details || ''}
 
-
 ${isRiskQuestion ? `\nSPECIAL RISK CONTEXT:\n${RISK_CONTEXT.factors}` : ''}
-
 
 COMPLETE PRESENTATION CONTENT:
 ${Object.entries(SLIDES_CONTENT).map(([num, content]) => `Slide ${num}: ${content}`).join('\n\n')}
 
-
 USER QUESTION:
 The user has asked: "${userContent}"
-
 
 INSTRUCTIONS:
 - Answer the user's question directly and comprehensively based on the current slide content.
@@ -129,7 +132,13 @@ INSTRUCTIONS:
    }
    // If starting the presentation
    else if (safeIncludes(userContent, 'start')) {
-     responseContent = SLIDES_CONTENT[1] + "\n\nWould you like to test your knowledge with a question about this topic, or shall we continue to the next slide?";
+     // Create a question prompt based on whether there are questions for this slide
+     const hasQuestions = hasQuestionsForSlide(1);
+     const questionPrompt = hasQuestions 
+       ? "\n\nWould you like to test your knowledge with a question about this topic?"
+       : "\n\nLet me know if you'd like to go to another slide or if you have any questions about this content.";
+       
+     responseContent = SLIDES_CONTENT[1] + questionPrompt;
    }
    // If navigating to a new slide or continuing the presentation
    else if (safeIncludes(userContent, 'slide') ||
@@ -137,22 +146,40 @@ INSTRUCTIONS:
            safeIncludes(userContent, 'next') ||
            safeIncludes(userContent, 'previous') ||
            safeIncludes(userContent, 'go to')) {
-     responseContent = `Would you like to test your knowledge with a question about this topic, or shall we continue to the next slide?`;
+     // Create a question prompt based on whether there are questions for this slide
+     const hasQuestions = hasQuestionsForSlide(slideNumber);
+     const questionPrompt = hasQuestions 
+       ? "\n\nWould you like to test your knowledge with a question about this topic?"
+       : "\n\nLet me know if you'd like to go to another slide or if you have any questions about this content.";
+       
+     responseContent = providedSlideContent + questionPrompt;
    }
    // If the user declines a question and wants to move on
    else if (safeIncludes(userContent, 'no') ||
            safeIncludes(userContent, 'skip') ||
            safeIncludes(userContent, 'not now') ||
            safeIncludes(userContent, 'move on')) {
-     responseContent = `Let's continue with the presentation. Here's slide ${slideNumber}:\n\n${providedSlideContent}\n\nWould you like to test your knowledge with a question about this topic, or shall we move to the next slide?`;
+     // Create a question prompt based on whether there are questions for this slide
+     const hasQuestions = hasQuestionsForSlide(slideNumber);
+     const questionPrompt = hasQuestions 
+       ? "\n\nWould you like to test your knowledge with a question about this topic?"
+       : "\n\nLet me know if you'd like to go to another slide or if you have any questions about this content.";
+       
+     responseContent = `Let's continue with the presentation. Here's slide ${slideNumber}:\n\n${providedSlideContent}${questionPrompt}`;
    }
    // Default response
    else {
-     responseContent = `Would you like to test your knowledge with a question about this topic, or shall we continue to the presentation?`;
+     // Create a question prompt based on whether there are questions for this slide
+     const hasQuestions = hasQuestionsForSlide(slideNumber);
+     const questionPrompt = hasQuestions 
+       ? "\n\nWould you like to test your knowledge with a question about this topic?"
+       : "\n\nLet me know if you'd like to go to another slide or if you have any questions about this content.";
+       
+     responseContent = providedSlideContent + questionPrompt;
    }
  } catch (error) {
    console.error("Error in presentationMode:", error);
-   responseContent = `Would you like to test your knowledge with a question about this topic, or shall we continue to the presentation?`;
+   responseContent = `There was an error processing your request. Would you like to try again or continue to the next slide?`;
  }
   // Create an AI message with the response
  const aiMessage = new AIMessage({
