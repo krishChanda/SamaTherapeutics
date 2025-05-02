@@ -1,4 +1,3 @@
-// Update the presentationMode.ts file
 import { OpenCanvasGraphAnnotation, OpenCanvasGraphReturnType } from "../state.js";
 import { LangGraphRunnableConfig } from "@langchain/langgraph";
 import { getModelFromConfig } from "../../utils.js";
@@ -30,10 +29,13 @@ export const presentationMode = async (
   // Get content question flag - with type safety
   const isContentQuestion = 'isContentQuestion' in state ? !!state.isContentQuestion : false;
   
-  // Get slide content - with type safety
+// Create a custom welcome message with navigation instructions
+const welcomeMessage = "Thank you for joining me for a discussion on advances in severe heart failure.\nTo navigate through the presentation, you can say:\n1. **\"Next slide\"** to move forward\n2. **\"Previous slide\"** to go back\n3. **\"Go to slide [number]\"** to jump to a specific slide";
+
+  // Get slide content - with type safety and override slide 1 content
   const providedSlideContent = 'slideContent' in state && typeof state.slideContent === 'string'
     ? state.slideContent
-    : SLIDES_CONTENT[slideNumber];
+    : (slideNumber === 1 ? welcomeMessage : SLIDES_CONTENT[slideNumber]);
   
   // Helper function to safely check if content includes a string
   const safeIncludes = (content: string | null | undefined, search: string): boolean => {
@@ -70,7 +72,7 @@ export const presentationMode = async (
       const systemPrompt = `You are an AI assistant explaining a medical presentation on Carvedilol and heart failure.
 
 CURRENT PRESENTATION CONTEXT:
-You are currently on Slide ${slideNumber}: ${SLIDES_CONTENT[slideNumber]}
+You are currently on Slide ${slideNumber}: ${slideNumber === 1 ? welcomeMessage : SLIDES_CONTENT[slideNumber]}
 
 ADDITIONAL SLIDE CONTEXT:
 ${SLIDE_CONTEXT[slideNumber]?.title || ''}: ${SLIDE_CONTEXT[slideNumber]?.details || ''}
@@ -78,7 +80,7 @@ ${SLIDE_CONTEXT[slideNumber]?.title || ''}: ${SLIDE_CONTEXT[slideNumber]?.detail
 ${isRiskQuestion ? `\nSPECIAL RISK CONTEXT:\n${RISK_CONTEXT.factors}` : ''}
 
 COMPLETE PRESENTATION CONTENT:
-${Object.entries(SLIDES_CONTENT).map(([num, content]) => `Slide ${num}: ${content}`).join('\n\n')}
+${Object.entries({...SLIDES_CONTENT, 1: welcomeMessage}).map(([num, content]) => `Slide ${num}: ${content}`).join('\n\n')}
 
 USER QUESTION:
 The user has asked: "${userContent}"
@@ -134,13 +136,16 @@ INSTRUCTIONS:
     }
     // If starting the presentation
     else if (safeIncludes(userContent, 'start')) {
-      // Create a question prompt based on whether there are questions for this slide
-      const hasQuestions = hasQuestionsForSlide(1);
-      const questionPrompt = hasQuestions 
-        ? "\n\nWould you like to test your knowledge with a question about this topic?"
-        : "\n\nLet me know if you'd like to go to another slide or if you have any questions about this content.";
-        
-      responseContent = SLIDES_CONTENT[1] + questionPrompt;
+      // Use the custom welcome message
+      responseContent = welcomeMessage;
+      
+      // The hasQuestions check is no longer needed since we're providing custom instructions
+      // But we can still offer to show a question if available
+      /*
+      if (hasQuestionsForSlide(1)) {
+        responseContent += "\n\nWould you like to test your knowledge with a question about this topic?";
+      }
+        */
     }
     // If navigating to a new slide or continuing the presentation
     else if (safeIncludes(userContent, 'slide') ||
@@ -153,8 +158,11 @@ INSTRUCTIONS:
       const questionPrompt = hasQuestions 
         ? "\n\nWould you like to test your knowledge with a question about this topic?"
         : "\n\nLet me know if you'd like to go to another slide or if you have any questions about this content.";
-        
-      responseContent = providedSlideContent + questionPrompt;
+      
+      // If we're going to slide 1, use the welcome message; otherwise use the provided content
+      responseContent = slideNumber === 1 
+        ? welcomeMessage
+        : providedSlideContent + questionPrompt;
     }
     // If the user declines a question and wants to move on
     else if (safeIncludes(userContent, 'no') ||
@@ -167,7 +175,10 @@ INSTRUCTIONS:
         ? "\n\nWould you like to test your knowledge with a question about this topic?"
         : "\n\nLet me know if you'd like to go to another slide or if you have any questions about this content.";
         
-      responseContent = `Let's continue with the presentation. Here's slide ${slideNumber}:\n\n${providedSlideContent}${questionPrompt}`;
+      // If going back to slide 1, use the welcome message; otherwise use the standard response
+      responseContent = slideNumber === 1
+        ? welcomeMessage + questionPrompt
+        : `Let's continue with the presentation. Here's slide ${slideNumber}:\n\n${providedSlideContent}${questionPrompt}`;
     }
     // Default response
     else {
@@ -176,24 +187,26 @@ INSTRUCTIONS:
       const questionPrompt = hasQuestions 
         ? "\n\nWould you like to test your knowledge with a question about this topic?"
         : "\n\nLet me know if you'd like to go to another slide or if you have any questions about this content.";
-        
-      responseContent = providedSlideContent + questionPrompt;
+      
+      // If we're on slide 1, use the welcome message; otherwise use the provided content
+      responseContent = slideNumber === 1
+        ? welcomeMessage + questionPrompt
+        : providedSlideContent + questionPrompt;
     }
   } catch (error) {
     console.error("Error in presentationMode:", error);
     responseContent = `There was an error processing your request. Would you like to try again or continue to the next slide?`;
   }
   
-  // Create an AI message with the response - FIXED: Removed the HTML comment from the message content
+  // Create an AI message with the response
   const aiMessage = new AIMessage({
     content: responseContent,
     id: uuidv4(),
     additional_kwargs: {
       presentationMode: true,
       currentSlide: slideNumber,
-      currentSlideContent: providedSlideContent,
+      currentSlideContent: slideNumber === 1 ? welcomeMessage : providedSlideContent,
       slideContext: SLIDE_CONTEXT[slideNumber]?.details || "",
-      // FIXED: Add flag directly in additional_kwargs instead of using HTML comment
       showQuestion: shouldShowQuestion
     }
   });

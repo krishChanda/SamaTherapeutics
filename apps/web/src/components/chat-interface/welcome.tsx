@@ -21,20 +21,12 @@ const QUICK_START_PROMPTS_SEARCH = [
 ];
 
 const QUICK_START_PROMPTS = [
-  "Write a bedtime story about a brave little robot",
-  "Create a function to calculate Fibonacci numbers in TypeScript",
-  "Draft a resignation letter for a position I've had for 2 years",
-  "Build a simple weather dashboard using React and Tailwind",
-  "Write a poem about artificial intelligence",
-  "Create a basic Express.js REST API with two endpoints",
-  "Draft a congratulatory speech for my sister's graduation",
-  "Build a command-line calculator in Python",
-  "Write instructions for making perfect scrambled eggs",
-  "Create a simple snake game using HTML canvas",
-  "Write me a TODO app in React",
-  "Explain why the sky is blue in a short essay",
-  "Help me draft an email to my professor Craig",
-  "Write a web scraping program in Python",
+  "Start carvedilol presentation",
+  "Start hypertension presentation",
+  "Start diabetes presentation",
+  "Start EKG basics presentation",
+  "Start lifestyle changes presentation",
+  "Start AFib presentation",
 ];
 
 function getRandomPrompts(prompts: string[], count: number = 4): string[] {
