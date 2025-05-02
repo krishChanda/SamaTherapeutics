@@ -37,7 +37,10 @@ const MultipleChoicePanel: React.FC<MultipleChoicePanelProps> = ({
   // Reset state when question changes or isAnswered changes
   useEffect(() => {
     setShowFeedback(isAnswered);
-    setSelectedChoice(undefined);
+    // Reset selection when question changes
+    if (!isAnswered) {
+      setSelectedChoice(undefined);
+    }
   }, [question?.id, isAnswered]);
   
   if (!question) {
@@ -49,6 +52,8 @@ const MultipleChoicePanel: React.FC<MultipleChoicePanelProps> = ({
   const handleChoiceClick = (choiceId: string, isCorrect: boolean) => {
     // Only allow selection if not already answered
     if (!showFeedback) {
+      console.log(`Selected: ${choiceId}, isCorrect: ${isCorrect}`); // Debug log
+      
       setSelectedChoice(choiceId);
       setShowFeedback(true);
       onAnswerSelected(choiceId, isCorrect);
@@ -56,7 +61,12 @@ const MultipleChoicePanel: React.FC<MultipleChoicePanelProps> = ({
   };
 
   // Find the correct choice for highlighting
-  const correctChoice = question.choices.find(c => c.isCorrect);
+  const correctChoice = question.choices.find(c => c.isCorrect === true);
+  
+  // Check if the selected choice is correct (with explicit comparison)
+  const isSelectedChoiceCorrect = selectedChoice ? 
+    question.choices.find(c => c.id === selectedChoice)?.isCorrect === true : 
+    false;
   
   const getButtonClass = (choiceId: string, isCorrect: boolean) => {
     if (!showFeedback) {
@@ -65,12 +75,12 @@ const MultipleChoicePanel: React.FC<MultipleChoicePanelProps> = ({
         : "bg-white border-2 border-gray-300 hover:bg-gray-100";
     }
     
-    // In feedback mode
-    if (isCorrect) {
+    // In feedback mode - use explicit comparison
+    if (isCorrect === true) {
       return "bg-green-500 text-white border-2 border-green-600"; 
     }
     
-    if (selectedChoice === choiceId && !isCorrect) {
+    if (selectedChoice === choiceId && isCorrect === false) {
       return "bg-red-500 text-white border-2 border-red-600";
     }
     
@@ -96,14 +106,14 @@ const MultipleChoicePanel: React.FC<MultipleChoicePanelProps> = ({
         ))}
       </div>
       
-      {showFeedback && (
+      {showFeedback && selectedChoice && (
         <div className={cn(
           "mt-6 p-4 rounded-md text-center font-medium",
-          selectedChoice && question.choices.find(c => c.id === selectedChoice)?.isCorrect
+          isSelectedChoiceCorrect
             ? "bg-green-100 text-green-800"
             : "bg-red-100 text-red-800"
         )}>
-          {selectedChoice && question.choices.find(c => c.id === selectedChoice)?.isCorrect
+          {isSelectedChoiceCorrect
             ? "Correct! Well done!"
             : `Incorrect. The correct answer is: ${correctChoice?.text}`}
         </div>

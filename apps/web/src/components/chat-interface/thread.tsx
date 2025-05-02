@@ -246,7 +246,7 @@ export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
        content: `go to slide ${currentSlide}`,
        id: messageId
      };
-    
+    /*
      // Create a HumanMessage for UI purposes
      const humanMessageForUI = new HumanMessage({
        content: `go to slide ${currentSlide}`,
@@ -255,7 +255,7 @@ export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
     
      // Update messages state with the user message
      setMessages(prevMessages => [...prevMessages, humanMessageForUI]);
-    
+    */
      console.log("🔍 Stream message called with slide:", currentSlide);
     
      // Get slide content and context
@@ -506,79 +506,80 @@ export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
 
 
  // Function to process a message before sending it to the AI
- const processMessage = async (content: string) => {
-   // Prevent processing multiple messages at once
-   if (isProcessingMessage.current) {
-     console.log("Already processing a message, skipping");
-     return true;
-   }
+const processMessage = async (content: string) => {
+  // Prevent processing multiple messages at once
+  if (isProcessingMessage.current) {
+    console.log("Already processing a message, skipping");
+    return true;
+  }
   
-   isProcessingMessage.current = true;
+  isProcessingMessage.current = true;
   
-   try {
-     // Create a message ID
-     const generatedMessageId = uuidv4();
+  try {
+    // Create a message ID
+    const generatedMessageId = uuidv4();
     
-     // Create a HumanMessage for UI purposes
-     const humanMessageForUI = new HumanMessage({
-       content: content,
-       id: generatedMessageId,
-     });
+    // Always create the user message regardless of whether it's a command
+    const humanMessageForUI = new HumanMessage({
+      content: content,
+      id: generatedMessageId,
+    });
     
-     // Add the message to the chat
-     setMessages(prevMessages => [...prevMessages, humanMessageForUI]);
+    // Add the message to the chat
+    setMessages(prevMessages => [...prevMessages, humanMessageForUI]);
     
-     // Check if this is a presentation command
-     if (handlePresentationCommands(content)) {
-       // Handled by command processor
-       return true;
-     }
+    // Check if this is a presentation command AFTER adding to chat
+    if (handlePresentationCommands(content)) {
+      // Handled by command processor
+      isProcessingMessage.current = false;
+      return true;
+    }
     
-     // For presentation mode, check if this is a content question or a presentation command
-     if (isPresentationMode) {
-       const isCommand = isPresentationCommand(content);
-       // Create a message object in expected format
-       const messageObject = {
-         role: "human",
-         content: content,
-         id: generatedMessageId
-       };
+    // For presentation mode, check if this is a content question
+    if (isPresentationMode) {
+      const isCommand = isPresentationCommand(content);
+      // Create a message object in expected format
+      const messageObject = {
+        role: "human",
+        content: content,
+        id: generatedMessageId
+      };
       
-       // Get slide content and context
-       const slideContent = SLIDES_CONTENT[currentSlide];
-       const slideContextData = SLIDE_CONTEXT[currentSlide];
+      // Get slide content and context
+      const slideContent = SLIDES_CONTENT[currentSlide];
+      const slideContextData = SLIDE_CONTEXT[currentSlide];
       
-       // Cast to any to bypass type checking
-       await (streamMessage as any)({
-         messages: [messageObject],
-         presentationMode: true,
-         presentationSlide: currentSlide,
-         slideContent: slideContent,
-         slideContext: slideContextData?.details || "",
-         slideTitle: slideContextData?.title || "",
-         allSlideContent: SLIDES_CONTENT,
-         allSlideContext: SLIDE_CONTEXT,
-         isContentQuestion: !isCommand  // Flag as content question if not a command
-       });
-     } else {
-       // Regular message processing (not in presentation mode)
-       const messageObject = {
-         role: "human",
-         content: content,
-         id: generatedMessageId
-       };
+      // Cast to any to bypass type checking
+      await (streamMessage as any)({
+        messages: [messageObject],
+        presentationMode: true,
+        presentationSlide: currentSlide,
+        slideContent: slideContent,
+        slideContext: slideContextData?.details || "",
+        slideTitle: slideContextData?.title || "",
+        allSlideContent: SLIDES_CONTENT,
+        allSlideContext: SLIDE_CONTEXT,
+        isContentQuestion: !isCommand  // Flag as content question if not a command
+      });
+    } else {
+      // Regular message processing (not in presentation mode)
+      const messageObject = {
+        role: "human",
+        content: content,
+        id: generatedMessageId
+      };
       
-       await streamMessage({
-         messages: [messageObject]
-       });
-     }
+      await streamMessage({
+        messages: [messageObject]
+      });
+    }
     
-     return true;
-   } finally {
-     isProcessingMessage.current = false;
-   }
- };
-
+    return true;
+  } finally {
+    isProcessingMessage.current = false;
+  }
+};
+    
 
  const handleNewSession = async () => {
    if (!user) {

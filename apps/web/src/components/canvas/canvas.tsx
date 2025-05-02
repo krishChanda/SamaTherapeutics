@@ -225,7 +225,7 @@ export function CanvasComponent() {
           <div className="flex justify-center p-2 border-b bg-white">
             <h1 className="flex justify-center text-xl font-semibold">Presentation on Carvedilol</h1>
             <button
-              className="bg-[#1152e2] absolute right-4 flex justify-between bg-red-500 hover:bg-red-600 text-white py-1 px-3 rounded-md shadow-md"
+              className="bg-[#1152e2] absolute right-4 flex justify-between bg-[#2463EB] hover:bg-[#1a4fd1] text-white py-1 px-3 rounded-md shadow-md"
               onClick={exitPresentation}
             >
               Exit Presentation
