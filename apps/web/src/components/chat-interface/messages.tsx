@@ -154,7 +154,7 @@ export const UserMessage: FC = () => {
         message={humanMessage}
         className="col-start-2 row-start-1"
       />
-      <div className="bg-[#2463EB] text-white bg-muted text-foreground col-start-2 row-start-2 max-w-xl break-words rounded-3xl px-5 py-2.5">
+      <div className="bg-[#1152e2] text-white col-start-2 row-start-2 max-w-xl break-words rounded-3xl px-5 py-2.5">
         <MessagePrimitive.Content />
       </div>
     </MessagePrimitive.Root>
