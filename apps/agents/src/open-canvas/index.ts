@@ -16,8 +16,24 @@ import { OpenCanvasGraphAnnotation } from "./state.js";
 import { summarizer } from "./nodes/summarizer.js";
 import { graph as webSearchGraph } from "../web-search/index.js";
 import { createAIMessageFromWebResults } from "../utils.js";
+import { presentationMode } from "./nodes/presentationMode.js";
+
+// In your index.ts file
 
 const routeNode = (state: typeof OpenCanvasGraphAnnotation.State) => {
+  // If we're in presentation mode, route to the presentation node
+  if (state.presentationMode) {
+    return new Send("presentationModeHandler", {
+      ...state,
+    });
+  }
+
+  if (state.webSearchEnabled) {
+    return new Send("webSearch", {
+      ...state,
+    });
+  }
+  
   if (!state.next) {
     throw new Error("'next' state field not set.");
   }
@@ -125,6 +141,8 @@ const builder = new StateGraph(OpenCanvasGraphAnnotation)
   .addNode("summarizer", summarizer)
   .addNode("webSearch", webSearchGraph)
   .addNode("routePostWebSearch", routePostWebSearch)
+  // Add presentation mode node
+  .addNode("presentationModeHandler", presentationMode)
   // Initial router
   .addConditionalEdges("generatePath", routeNode, [
     "updateArtifact",
@@ -136,6 +154,7 @@ const builder = new StateGraph(OpenCanvasGraphAnnotation)
     "customAction",
     "updateHighlightedText",
     "webSearch",
+    "presentationModeHandler", // Add presentation mode to router
   ])
   // Edges
   .addEdge("generateArtifact", "generateFollowup")
@@ -146,6 +165,8 @@ const builder = new StateGraph(OpenCanvasGraphAnnotation)
   .addEdge("rewriteCodeArtifactTheme", "generateFollowup")
   .addEdge("customAction", "generateFollowup")
   .addEdge("webSearch", "routePostWebSearch")
+  // Presentation mode edge
+  .addEdge("presentationModeHandler", END)
   // End edges
   .addEdge("replyToGeneralInput", "cleanState")
   // Only reflect if an artifact was generated/updated.

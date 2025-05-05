@@ -364,6 +364,29 @@ export function GraphProvider({ children }: { children: ReactNode }) {
 
       // The new index of the artifact that is generating
       let newArtifactIndex = 1;
+
+      const forcePresentationUIUpdate = (message: any) => {
+        if (!message) return;
+        
+        console.log("🔍 Forcing presentation UI update for message:", message.id);
+        
+        // Add the message to the UI immediately
+        setMessages(prev => {
+          // Check if message already exists
+          const messageExists = prev.some(m => m.id === message.id);
+          if (messageExists) {
+            // Update the existing message by creating a new array
+            return prev.map(m => m.id === message.id ? message : m);
+          } else {
+            // Add the new message
+            return [...prev, message];
+          }
+        });
+        
+        // Set first token flag to ensure loading indicators are removed
+        setFirstTokenReceived(true);
+      };
+
       if (artifact) {
         newArtifactIndex = artifact.contents.length + 1;
       }
@@ -844,6 +867,22 @@ export function GraphProvider({ children }: { children: ReactNode }) {
             }
           }
 
+          if (event === "on_chain_end" && langgraphNode === "presentationModeHandler") {
+            console.log("🔍 Presentation mode response received:", nodeOutput);
+            
+            // Extract the message from nodeOutput
+            if (nodeOutput && nodeOutput.messages && nodeOutput.messages.length > 0) {
+              const presentationMessage = nodeOutput.messages[0];
+              
+              // Force a UI update by adding the message directly to the messages state
+              setFirstTokenReceived(true);
+              setMessages(prevMessages => [...prevMessages, presentationMessage]);
+              
+              // Log success
+              console.log("🔍 Presentation message added to UI:", presentationMessage.id);
+            }
+          }
+
           if (event === "on_chat_model_end") {
             if (
               langgraphNode === "rewriteArtifact" &&
@@ -1204,6 +1243,39 @@ export function GraphProvider({ children }: { children: ReactNode }) {
                   });
                 });
               });
+            }
+
+            if (langgraphNode === "presentationModeHandler") {
+              console.log("🔍 Presentation mode chain ended:", nodeOutput);
+              
+              // Check if we received presentation-specific data
+              if (nodeOutput && nodeOutput._messages && nodeOutput._messages.length > 0) {
+                // Add a type annotation for the presentation messages
+                const presentationMessages = nodeOutput._messages as BaseMessage[];
+                
+                // Update messages and force a UI refresh
+                setMessages(prevMessages => {
+                  // Create a new array to ensure React detects the change
+                  const newMessages = [...prevMessages];
+                  
+                  // Add all new presentation messages
+                  presentationMessages.forEach((msg: BaseMessage) => {
+                    // Check if this message is already in the list
+                    const existingMsgIndex = newMessages.findIndex(m => m.id === msg.id);
+                    if (existingMsgIndex >= 0) {
+                      // Replace existing message
+                      newMessages[existingMsgIndex] = msg;
+                    } else {
+                      // Add new message
+                      newMessages.push(msg);
+                    }
+                  });
+                  
+                  return newMessages;
+                });
+                
+                console.log("🔍 Presentation messages processed, UI should update");
+              }
             }
 
             if (

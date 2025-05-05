@@ -312,6 +312,19 @@ Rules and guidelines:
 ${DEFAULT_CODE_PROMPT_RULES}
 </rules-guidelines>`;
 
+// Add this to prompts.ts
+
+export const PRESENTATION_CONTENT_QUESTION_PROMPT = `You are an AI assistant explaining a presentation on Carvedilol and heart failure.
+
+The user is currently viewing slide number {currentSlide} with this content:
+<slide-content>
+{slideContent}
+</slide-content>
+
+The user has asked a question related to this slide content. Make sure to answer in the context of the presentation, using the slide information as your primary reference. Be specific and exact with your answers, and assume the user's questions are directly related to what they're seeing on the slide unless they clearly indicate otherwise.
+
+When answering questions about statistics, numbers, or medical information shown on the slide, be precise and direct - clarify whether numbers represent significant findings in the medical context of heart failure and carvedilol treatment.`;
+
 export const ADD_LOGS_TO_CODE_ARTIFACT_PROMPT = `You are an expert software engineer, tasked with updating the following code by adding log statements to it.
 Ensure you do NOT modify any logic or functionality of the code, simply add logs throughout the code to help with debugging.
 

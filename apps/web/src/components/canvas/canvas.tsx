@@ -28,19 +28,38 @@ import {
 } from "@/components/ui/resizable";
 import { CHAT_COLLAPSED_QUERY_PARAM } from "@/constants";
 import { useRouter, useSearchParams } from "next/navigation";
+import SlideDeck from "../ui/slidedeck";
+import { useMultipleChoice } from "@/contexts/MultipleChoiceContext";
+import { usePresentation } from '@/contexts/PresentationContext';
+import { HumanMessage, AIMessage } from "@langchain/core/messages";
 
 export function CanvasComponent() {
   const { graphData } = useGraphContext();
   const { setModelName, setModelConfig } = useThreadContext();
   const { setArtifact, chatStarted, setChatStarted } = graphData;
   const { toast } = useToast();
-  const [isEditing, setIsEditing] = useState(false);
-  const [webSearchResultsOpen, setWebSearchResultsOpen] = useState(false);
-  const [chatCollapsed, setChatCollapsed] = useState(false);
+  const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [webSearchResultsOpen, setWebSearchResultsOpen] = useState<boolean>(false);
+  const [chatCollapsed, setChatCollapsed] = useState<boolean>(false);
+  
+  // Get presentation and multiple choice contexts
+  const { 
+    isPresentationMode, 
+    exitPresentation,
+    currentSlide,
+    getSlideContent
+  } = usePresentation();
+  
+  const { isMultipleChoiceMode, disableMultipleChoiceMode } = useMultipleChoice();
+  
+  // State to track whether to show a question in presentation mode
+  const [showQuestion, setShowQuestion] = useState<boolean>(false);
 
   const searchParams = useSearchParams();
   const router = useRouter();
   const chatCollapsedSearchParam = searchParams.get(CHAT_COLLAPSED_QUERY_PARAM);
+  
+  // Update chat collapse state from URL
   useEffect(() => {
     try {
       if (chatCollapsedSearchParam) {
@@ -52,8 +71,102 @@ export function CanvasComponent() {
       queryParams.delete(CHAT_COLLAPSED_QUERY_PARAM);
       router.replace(`?${queryParams.toString()}`, { scroll: false });
     }
-  }, [chatCollapsedSearchParam]);
+  }, [chatCollapsedSearchParam, router, searchParams]);
 
+  // NEW EFFECT: Ensure AI messages in presentation mode are rendered
+  useEffect(() => {
+    if (isPresentationMode && graphData.messages.length > 0) {
+      // Get the last message
+      const lastMessage = graphData.messages[graphData.messages.length - 1];
+      
+      // Check if it's an AI message and hasn't been processed for UI updates
+      if (lastMessage instanceof AIMessage && 
+          !lastMessage.additional_kwargs?._canvasProcessed) {
+        
+        console.log("🔍 Canvas detected new AI message in presentation mode:", lastMessage.id);
+        
+        // Mark the message as processed by canvas component
+        if (!lastMessage.additional_kwargs) {
+          lastMessage.additional_kwargs = {};
+        }
+        lastMessage.additional_kwargs._canvasProcessed = true;
+        
+        // Force a UI update by creating a new message array
+        // This is a workaround to ensure the UI refreshes
+        setTimeout(() => {
+          graphData.setMessages([...graphData.messages]);
+          console.log("🔍 Canvas forced message re-render");
+        }, 10);
+      }
+    }
+  }, [isPresentationMode, graphData.messages, graphData.setMessages]);
+
+  // Update this section in canvas.tsx - the useEffect hook that checks for questions
+// Find this useEffect in canvas.tsx that processes messages and update it
+
+useEffect(() => {
+  if (isPresentationMode && graphData.messages.length > 0) {
+    // Check the most recent message
+    const recentMessages = [...graphData.messages];
+    const lastMessage = recentMessages[recentMessages.length - 1];
+    
+    // Try to access content safely
+    const messageContent = typeof lastMessage?.content === 'string' 
+      ? lastMessage.content 
+      : '';
+    
+    // Get additional keywords
+    const additionalKwargs = lastMessage && 'additional_kwargs' in lastMessage 
+      ? lastMessage.additional_kwargs || {}
+      : {};
+    
+    // Check for user responses indicating they want a question
+    if (lastMessage instanceof HumanMessage && (
+        messageContent.toLowerCase().includes('yes') ||
+        messageContent.toLowerCase().includes('sure') ||
+        messageContent.toLowerCase().includes('question') ||
+        messageContent.toLowerCase().includes('test') ||
+        messageContent.toLowerCase().includes('quiz')
+      )) {
+      console.log("User has requested a question");
+      setShowQuestion(true);
+    }
+    
+    // Check for user responses indicating they want to skip the question
+    else if (lastMessage instanceof HumanMessage && (
+        messageContent.toLowerCase().includes('no') ||
+        messageContent.toLowerCase().includes('skip') ||
+        messageContent.toLowerCase().includes('next slide') ||
+        messageContent.toLowerCase().includes('continue') ||
+        messageContent.toLowerCase().includes('move on')
+      )) {
+      console.log("User has declined the question");
+      setShowQuestion(false);
+    }
+    
+    // FIXED: Check for the showQuestion flag in additional_kwargs instead of HTML comment
+    else if (lastMessage instanceof AIMessage && 
+             additionalKwargs.showQuestion === true) {
+      console.log("Question flag found in message metadata, showing question");
+      setShowQuestion(true);
+      
+      // No need to clean up the message content since we're not using HTML comments anymore
+    }
+    
+    // If we're changing slides, hide the question panel initially
+    else if (lastMessage instanceof HumanMessage && (
+        messageContent.toLowerCase().includes('go to slide') ||
+        messageContent.toLowerCase().includes('slide') ||
+        messageContent.toLowerCase().includes('next') ||
+        messageContent.toLowerCase().includes('previous')
+      )) {
+      console.log("Slide change requested, hiding question panel");
+      setShowQuestion(false);
+    }
+  }
+}, [graphData.messages, isPresentationMode, graphData.setMessages]);
+
+  // Quick start function for new artifacts
   const handleQuickStart = (
     type: "text" | "code",
     language?: ProgrammingLanguageOptions
@@ -90,11 +203,76 @@ export function CanvasComponent() {
       currentIndex: 1,
       contents: [artifactContent],
     };
-    // Do not worry about existing items in state. This should
-    // never occur since this action can only be invoked if
-    // there are no messages/artifacts in the thread.
     setArtifact(newArtifact);
     setIsEditing(true);
+  };
+
+  // Render function for the main content area
+  const renderMainContent = () => {
+    if (isPresentationMode) {
+      return (
+        <div className="h-full w-full flex flex-col bg-white presentation-panel relative">
+          {/* Header with title and exit button */}
+          <div className="flex justify-center p-2 border-b bg-white">
+            <h1 className="flex justify-center text-xl font-semibold">Presentation on Carvedilol</h1>
+            <button
+              className="bg-[#1152e2] absolute right-4 flex justify-between bg-[#2463EB] hover:bg-[#1a4fd1] text-white py-1 px-3 rounded-md shadow-md"
+              onClick={exitPresentation}
+            >
+              Exit Presentation
+            </button>
+          </div>
+          
+          {/* Presentation content */}
+          <div className="flex-1 overflow-hidden">
+            <SlideDeck showQuestion={showQuestion} />
+          </div>
+        </div>
+      );
+    } else if (isMultipleChoiceMode) {
+      // We're handling quiz within the presentation now, so this should 
+      // never be reached, but we'll keep it for backward compatibility
+      return (
+        <div className="h-full w-full flex flex-col bg-white presentation-panel relative">
+          <div className="flex justify-between items-center p-2 border-b bg-white">
+            <h1 className="text-xl font-semibold">Quiz Mode</h1>
+            <button
+              className="bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-3 rounded-md shadow-md"
+              onClick={() => {
+                disableMultipleChoiceMode();
+                if (isPresentationMode) exitPresentation();
+              }}
+            >
+              Exit Quiz
+            </button>
+          </div>
+          <div className="flex-1 overflow-hidden">
+            <SlideDeck showQuestion={true} />
+          </div>
+        </div>
+      );
+    } else {
+      return (
+        <ArtifactRenderer
+          chatCollapsed={chatCollapsed}
+          setChatCollapsed={(c) => {
+            setChatCollapsed(c);
+            const queryParams = new URLSearchParams(
+              searchParams.toString()
+            );
+            queryParams.set(
+              CHAT_COLLAPSED_QUERY_PARAM,
+              JSON.stringify(c)
+            );
+            router.replace(`?${queryParams.toString()}`, {
+              scroll: false,
+            });
+          }}
+          setIsEditing={setIsEditing}
+          isEditing={isEditing}
+        />
+      );
+    }
   };
 
   return (
@@ -141,6 +319,7 @@ export function CanvasComponent() {
           />
         </NoSSRWrapper>
       )}
+
       {!chatCollapsed && chatStarted && (
         <ResizablePanel
           defaultSize={25}
@@ -175,9 +354,9 @@ export function CanvasComponent() {
 
                   if (thread?.metadata?.modelConfig) {
                     setModelConfig(
-                      (thread?.metadata.customModelName ??
+                      (thread?.metadata?.customModelName ??
                         DEFAULT_MODEL_NAME) as ALL_MODEL_NAMES,
-                      (thread.metadata.modelConfig ??
+                      (thread.metadata?.modelConfig ??
                         DEFAULT_MODEL_CONFIG) as CustomModelConfig
                     );
                   } else {
@@ -190,6 +369,74 @@ export function CanvasComponent() {
               setChatStarted={setChatStarted}
               hasChatStarted={chatStarted}
               handleQuickStart={handleQuickStart}
+              onMessageProcessed={(message) => {
+                // If in presentation mode, pass the current slide content
+                if (isPresentationMode && message && typeof message.content === 'string') {
+                  // Add slide content to AI context if needed
+                  if (message.additional_kwargs === undefined) {
+                    message.additional_kwargs = {};
+                  }
+                  
+                  // Add presentation mode flag
+                  message.additional_kwargs.presentationMode = true;
+                  
+                  // Add current slide information
+                  if (!message.additional_kwargs.currentSlideContent) {
+                    message.additional_kwargs.currentSlideContent = getSlideContent(currentSlide);
+                    message.additional_kwargs.currentSlide = currentSlide;
+                  }
+                  
+                  // Check for question prompts
+                  if (message.content.includes("SHOW_QUESTION") ||
+                      message.content.includes("Would you like to test your knowledge")) {
+                    console.log("Message contains question prompt");
+                  }
+                  
+                  // Remove any artifact references if in presentation mode
+                  if (message instanceof AIMessage && 
+                      message.content.includes("viewing the") && 
+                      message.content.includes("artifact")) {
+                    const cleanedContent = message.content.replace(/It seems you are currently viewing the .* artifact[\.\s\S]*?(?=\n\n|$)/, "");
+                    
+                    if (cleanedContent !== message.content) {
+                      console.log("🔍 Cleaning up artifact reference in message");
+                      
+                      // Update the message with cleaned content
+                      graphData.setMessages(prevMessages => prevMessages.map(msg => 
+                        msg.id === message.id 
+                          ? new AIMessage({
+                              ...message,
+                              content: cleanedContent
+                            }) 
+                          : msg
+                      ));
+                    }
+                  }
+
+                  // Force a UI update for presentation mode messages
+                  if (message instanceof AIMessage && !message.additional_kwargs._processed) {
+                    message.additional_kwargs._processed = true;
+                    
+                    // Force re-render by creating a new message object with a timestamp
+                    setTimeout(() => {
+                      const refreshedMessage = new AIMessage({
+                        ...message,
+                        content: message.content,
+                        additional_kwargs: {
+                          ...message.additional_kwargs,
+                          _refreshTimestamp: Date.now()
+                        }
+                      });
+                      
+                      graphData.setMessages(prevMessages => 
+                        prevMessages.map(msg => msg.id === message.id ? refreshedMessage : msg)
+                      );
+                      
+                      console.log("🔍 Message refreshed in onMessageProcessed");
+                    }, 10);
+                  }
+                }
+              }}
             />
           </NoSSRWrapper>
         </ResizablePanel>
@@ -206,25 +453,9 @@ export function CanvasComponent() {
             order={2}
             className="flex flex-row w-full"
           >
+            {/* Main content area */}
             <div className="w-full ml-auto">
-              <ArtifactRenderer
-                chatCollapsed={chatCollapsed}
-                setChatCollapsed={(c) => {
-                  setChatCollapsed(c);
-                  const queryParams = new URLSearchParams(
-                    searchParams.toString()
-                  );
-                  queryParams.set(
-                    CHAT_COLLAPSED_QUERY_PARAM,
-                    JSON.stringify(c)
-                  );
-                  router.replace(`?${queryParams.toString()}`, {
-                    scroll: false,
-                  });
-                }}
-                setIsEditing={setIsEditing}
-                isEditing={isEditing}
-              />
+              {renderMainContent()}
             </div>
             <WebSearchResults
               open={webSearchResultsOpen}
