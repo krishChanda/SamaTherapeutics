@@ -45,39 +45,50 @@ function getMessageContent(message: BaseMessage): string {
 
 // Function to check if a message is a presentation command vs. a content question
 function isPresentationCommand(message: string): boolean {
- // Normalize the message
- const normalizedMsg = message.toLowerCase().trim();
+  // Normalize the message
+  const normalizedMsg = message.toLowerCase().trim();
+  
+  // ADDED THIS CHECK: Check specifically for "start carvedilol presentation"
+  if (normalizedMsg.includes("start carvedilol presentation") ||
+      normalizedMsg.includes("start carvedilol")) {
+    console.log("🔍 Detected start carvedilol presentation command");
+    return true;
+  }
+
   // Navigation commands
- if (normalizedMsg.includes("go to slide") ||
-     normalizedMsg.includes("next slide") ||
-     normalizedMsg === "next" ||
-     normalizedMsg.includes("previous slide") ||
-     normalizedMsg === "previous" ||
-     normalizedMsg === "back" ||
-     normalizedMsg.includes("exit presentation") ||
-     normalizedMsg === "exit" ||
-     normalizedMsg.includes("start presentation") ||
-     normalizedMsg.match(/^slide \d+$/i) !== null) {
-   return true;
- }
+  if (normalizedMsg.includes("go to slide") ||
+      normalizedMsg.includes("next slide") ||
+      normalizedMsg === "next" ||
+      normalizedMsg.includes("previous slide") ||
+      normalizedMsg === "previous" ||
+      normalizedMsg === "back" ||
+      normalizedMsg.includes("exit presentation") ||
+      normalizedMsg === "exit" ||
+      normalizedMsg.includes("start presentation") ||
+      normalizedMsg.match(/^slide \d+$/i) !== null) {
+    return true;
+  }
+  
   // Quiz-related commands
- if ((normalizedMsg.includes("test my knowledge") ||
-      normalizedMsg.includes("quiz") ||
-      normalizedMsg.includes("ask me a question") ||
-      normalizedMsg.includes("would like a question")) &&
-     normalizedMsg.length < 50) {
-   return true;
- }
+  if ((normalizedMsg.includes("test my knowledge") ||
+       normalizedMsg.includes("quiz") ||
+       normalizedMsg.includes("ask me a question") ||
+       normalizedMsg.includes("would like a question")) &&
+      normalizedMsg.length < 50) {
+    return true;
+  }
+  
   // Simple responses to quiz prompts (only if they're short)
- if ((normalizedMsg.includes("yes") ||
-      normalizedMsg.includes("no") ||
-      normalizedMsg.includes("skip") ||
-      normalizedMsg.includes("continue")) &&
-     normalizedMsg.length < 15) {
-   return true;
- }
+  if ((normalizedMsg.includes("yes") ||
+       normalizedMsg.includes("no") ||
+       normalizedMsg.includes("skip") ||
+       normalizedMsg.includes("continue")) &&
+      normalizedMsg.length < 15) {
+    return true;
+  }
+  
   // If none of the above conditions are met, it's likely a content question
- return false;
+  return false;
 }
 
 
@@ -202,20 +213,24 @@ export async function generatePath(
     
      // Enhanced content question detection
      if (!isPresentationCommand(messageContent) && !showQuestion && !isContentQuestion) {
-       console.log("🔍 Content question detected - routing to presentationModeHandler with isContentQuestion=true");
-      
-       // Rather than routing to generateArtifact, route to presentationModeHandler with isContentQuestion=true
-       // This keeps the context of the presentation while handling the content question
-       const currentSlideNum = state.presentationSlide || 1;
-       return {
-         next: "presentationModeHandler",
-         presentationMode: true,
-         presentationSlide: currentSlideNum,
-         isContentQuestion: true,
-         slideContent: SLIDES_CONTENT[currentSlideNum],
-         slideContext: SLIDE_CONTEXT[currentSlideNum]?.details || ""
-       };
-     }
+      // Also add a direct check for start commands to prevent them being processed as content questions
+      if (!messageContent.toLowerCase().includes('start carvedilol') && 
+          !messageContent.toLowerCase().includes('start presentation')) {
+        console.log("🔍 Content question detected - routing to presentationModeHandler with isContentQuestion=true");
+        
+        // Rather than routing to generateArtifact, route to presentationModeHandler with isContentQuestion=true
+        // This keeps the context of the presentation while handling the content question
+        const currentSlideNum = state.presentationSlide || 1;
+        return {
+          next: "presentationModeHandler",
+          presentationMode: true,
+          presentationSlide: currentSlideNum,
+          isContentQuestion: true,
+          slideContent: SLIDES_CONTENT[currentSlideNum],
+          slideContext: SLIDE_CONTEXT[currentSlideNum]?.details || ""
+        };
+      }
+    }
     
      // Check if the user requested a question
      if (
