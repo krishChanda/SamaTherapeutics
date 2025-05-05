@@ -396,6 +396,13 @@ useEffect(() => {
  const isPresentationCommand = (content: string): boolean => {
    // Normalize the message
    const normalizedContent = content.toLowerCase().trim();
+
+   // Add specific check for start presentation variations
+  if (normalizedContent.includes('start carvedilol') ||
+      normalizedContent.includes('start presentation')) {
+    console.log("🔍 Found presentation start command");
+    return true;
+  }
   
    // Navigation commands
    if (normalizedContent.includes("go to slide") ||
@@ -796,6 +803,7 @@ const processMessage = async (content: string) => {
                  />
                }
                searchEnabled={props.searchEnabled}
+               setChatStarted={props.setChatStarted}
              />
            )}
            <ThreadPrimitive.Messages
