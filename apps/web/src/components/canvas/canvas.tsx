@@ -47,7 +47,8 @@ export function CanvasComponent() {
     isPresentationMode, 
     exitPresentation,
     currentSlide,
-    getSlideContent
+    getSlideContent,
+    startPresentation
   } = usePresentation();
   
   const { isMultipleChoiceMode, disableMultipleChoiceMode } = useMultipleChoice();
@@ -58,6 +59,36 @@ export function CanvasComponent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const chatCollapsedSearchParam = searchParams.get(CHAT_COLLAPSED_QUERY_PARAM);
+  
+  // Add more debugging for presentation mode state changes
+  useEffect(() => {
+    console.log("🔍 Presentation mode state changed:", { isPresentationMode, currentSlide, chatStarted });
+    
+    // Force a re-render if presentation mode is active
+    if (isPresentationMode) {
+      // Ensure chat is started when presentation mode is active
+      if (!chatStarted) {
+        setChatStarted(true);
+      }
+    }
+  }, [isPresentationMode, currentSlide, chatStarted, setChatStarted]);
+  
+  // Listen for presentationModeChange events from other components
+  useEffect(() => {
+    const handlePresentationModeChange = (event: CustomEvent) => {
+      console.log("🔍 Canvas received presentation mode change event:", event.detail);
+      if (event.detail?.isActive === true) {
+        // Force chat started when entering presentation mode
+        setChatStarted(true);
+      }
+    };
+    
+    window.addEventListener('presentationModeChange', handlePresentationModeChange as EventListener);
+    
+    return () => {
+      window.removeEventListener('presentationModeChange', handlePresentationModeChange as EventListener);
+    };
+  }, [setChatStarted]);
   
   // Update chat collapse state from URL
   useEffect(() => {
@@ -102,69 +133,65 @@ export function CanvasComponent() {
   }, [isPresentationMode, graphData.messages, graphData.setMessages]);
 
   // Update this section in canvas.tsx - the useEffect hook that checks for questions
-// Find this useEffect in canvas.tsx that processes messages and update it
-
-useEffect(() => {
-  if (isPresentationMode && graphData.messages.length > 0) {
-    // Check the most recent message
-    const recentMessages = [...graphData.messages];
-    const lastMessage = recentMessages[recentMessages.length - 1];
-    
-    // Try to access content safely
-    const messageContent = typeof lastMessage?.content === 'string' 
-      ? lastMessage.content 
-      : '';
-    
-    // Get additional keywords
-    const additionalKwargs = lastMessage && 'additional_kwargs' in lastMessage 
-      ? lastMessage.additional_kwargs || {}
-      : {};
-    
-    // Check for user responses indicating they want a question
-    if (lastMessage instanceof HumanMessage && (
-        messageContent.toLowerCase().includes('yes') ||
-        messageContent.toLowerCase().includes('sure') ||
-        messageContent.toLowerCase().includes('question') ||
-        messageContent.toLowerCase().includes('test') ||
-        messageContent.toLowerCase().includes('quiz')
-      )) {
-      console.log("User has requested a question");
-      setShowQuestion(true);
-    }
-    
-    // Check for user responses indicating they want to skip the question
-    else if (lastMessage instanceof HumanMessage && (
-        messageContent.toLowerCase().includes('no') ||
-        messageContent.toLowerCase().includes('skip') ||
-        messageContent.toLowerCase().includes('next slide') ||
-        messageContent.toLowerCase().includes('continue') ||
-        messageContent.toLowerCase().includes('move on')
-      )) {
-      console.log("User has declined the question");
-      setShowQuestion(false);
-    }
-    
-    // FIXED: Check for the showQuestion flag in additional_kwargs instead of HTML comment
-    else if (lastMessage instanceof AIMessage && 
-             additionalKwargs.showQuestion === true) {
-      console.log("Question flag found in message metadata, showing question");
-      setShowQuestion(true);
+  useEffect(() => {
+    if (isPresentationMode && graphData.messages.length > 0) {
+      // Check the most recent message
+      const recentMessages = [...graphData.messages];
+      const lastMessage = recentMessages[recentMessages.length - 1];
       
-      // No need to clean up the message content since we're not using HTML comments anymore
+      // Try to access content safely
+      const messageContent = typeof lastMessage?.content === 'string' 
+        ? lastMessage.content 
+        : '';
+      
+      // Get additional keywords
+      const additionalKwargs = lastMessage && 'additional_kwargs' in lastMessage 
+        ? lastMessage.additional_kwargs || {}
+        : {};
+      
+      // Check for user responses indicating they want a question
+      if (lastMessage instanceof HumanMessage && (
+          messageContent.toLowerCase().includes('yes') ||
+          messageContent.toLowerCase().includes('sure') ||
+          messageContent.toLowerCase().includes('question') ||
+          messageContent.toLowerCase().includes('test') ||
+          messageContent.toLowerCase().includes('quiz')
+        )) {
+        console.log("User has requested a question");
+        setShowQuestion(true);
+      }
+      
+      // Check for user responses indicating they want to skip the question
+      else if (lastMessage instanceof HumanMessage && (
+          messageContent.toLowerCase().includes('no') ||
+          messageContent.toLowerCase().includes('skip') ||
+          messageContent.toLowerCase().includes('next slide') ||
+          messageContent.toLowerCase().includes('continue') ||
+          messageContent.toLowerCase().includes('move on')
+        )) {
+        console.log("User has declined the question");
+        setShowQuestion(false);
+      }
+      
+      // FIXED: Check for the showQuestion flag in additional_kwargs instead of HTML comment
+      else if (lastMessage instanceof AIMessage && 
+               additionalKwargs.showQuestion === true) {
+        console.log("Question flag found in message metadata, showing question");
+        setShowQuestion(true);
+      }
+      
+      // If we're changing slides, hide the question panel initially
+      else if (lastMessage instanceof HumanMessage && (
+          messageContent.toLowerCase().includes('go to slide') ||
+          messageContent.toLowerCase().includes('slide') ||
+          messageContent.toLowerCase().includes('next') ||
+          messageContent.toLowerCase().includes('previous')
+        )) {
+        console.log("Slide change requested, hiding question panel");
+        setShowQuestion(false);
+      }
     }
-    
-    // If we're changing slides, hide the question panel initially
-    else if (lastMessage instanceof HumanMessage && (
-        messageContent.toLowerCase().includes('go to slide') ||
-        messageContent.toLowerCase().includes('slide') ||
-        messageContent.toLowerCase().includes('next') ||
-        messageContent.toLowerCase().includes('previous')
-      )) {
-      console.log("Slide change requested, hiding question panel");
-      setShowQuestion(false);
-    }
-  }
-}, [graphData.messages, isPresentationMode, graphData.setMessages]);
+  }, [graphData.messages, isPresentationMode, graphData.setMessages]);
 
   // Quick start function for new artifacts
   const handleQuickStart = (
@@ -207,9 +234,16 @@ useEffect(() => {
     setIsEditing(true);
   };
 
-  // Render function for the main content area
+  // Render function for the main content area with improved logging
   const renderMainContent = () => {
+    console.log("🔍 Rendering main content:", { 
+      isPresentationMode, 
+      isMultipleChoiceMode, 
+      chatStarted 
+    });
+    
     if (isPresentationMode) {
+      console.log("🔍 Rendering presentation UI");
       return (
         <div className="h-full w-full flex flex-col bg-white presentation-panel relative">
           {/* Header with title and exit button */}
