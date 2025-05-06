@@ -1,3 +1,5 @@
+"use client";
+
 import { ProgrammingLanguageOptions } from "@opencanvas/shared/types";
 import { ThreadPrimitive, useThreadRuntime } from "@assistant-ui/react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -6,6 +8,10 @@ import { TighterText } from "../ui/header";
 import { NotebookPen } from "lucide-react";
 import { ProgrammingLanguagesDropdown } from "../ui/programming-lang-dropdown";
 import { Button } from "../ui/button";
+import { usePresentation } from '@/contexts/PresentationContext';
+import { v4 as uuidv4 } from "uuid";
+import { HumanMessage } from "@langchain/core/messages";
+import { useGraphContext } from "@/contexts/GraphContext";
 
 const QUICK_START_PROMPTS_SEARCH = [
   "Write a market analysis of AI chip manufacturers in 2025",
@@ -40,16 +46,77 @@ interface QuickStartButtonsProps {
   ) => void;
   composer: React.ReactNode;
   searchEnabled: boolean;
+  setChatStarted?: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 interface QuickStartPromptsProps {
   searchEnabled: boolean;
+  setChatStarted?: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-const QuickStartPrompts = ({ searchEnabled }: QuickStartPromptsProps) => {
+const QuickStartPrompts = ({ searchEnabled, setChatStarted }: QuickStartPromptsProps) => {
   const threadRuntime = useThreadRuntime();
+  const { startPresentation } = usePresentation();
+  const { graphData } = useGraphContext();
+  const { streamMessage, setMessages } = graphData;
 
   const handleClick = (text: string) => {
+    // Check if this is a presentation start command
+    const isPresentationStart = text.toLowerCase().includes('start presentation') || 
+                               text.toLowerCase().includes('start carvedilol');
+    
+    if (isPresentationStart) {
+      console.log("🔍 Starting presentation from welcome page");
+      
+      // Start presentation mode directly
+      startPresentation();
+      
+      // Create a message ID
+      const messageId = uuidv4();
+      
+      // Create a HumanMessage for UI purposes
+      const humanMessageForUI = new HumanMessage({
+        content: text,
+        id: messageId,
+        additional_kwargs: {
+          presentationMode: true,
+          presentationSlide: 1
+        }
+      });
+      
+      // Add the message to the UI
+      setMessages(prevMessages => [...prevMessages, humanMessageForUI]);
+      
+      // Stream the message with presentation mode enabled
+      streamMessage({
+        messages: [{
+          role: "human",
+          content: text,
+          id: messageId
+        }],
+        presentationMode: true,
+        presentationSlide: 1
+      } as any);
+      
+      // Set chat started to ensure UI updates properly
+      if (setChatStarted) {
+        setChatStarted(true);
+      }
+      
+      // Dispatch event to notify other components of presentation mode
+      window.dispatchEvent(new CustomEvent('presentationModeChange', { 
+        detail: { isActive: true } 
+      }));
+      
+      // Return early to prevent regular message handling
+      return;
+    }
+    
+    // Regular message handling - only for non-presentation messages
+    if (setChatStarted) {
+      setChatStarted(true);
+    }
+    
     threadRuntime.append({
       role: "user",
       content: [{ type: "text", text }],
@@ -93,7 +160,10 @@ const QuickStartButtons = (props: QuickStartButtonsProps) => {
     <div className="flex flex-col gap-8 items-center justify-center w-full">
       <div className="flex flex-col gap-6 mt-2 w-full">
         {props.composer}
-        <QuickStartPrompts searchEnabled={props.searchEnabled} />
+        <QuickStartPrompts 
+          searchEnabled={props.searchEnabled} 
+          setChatStarted={props.setChatStarted} 
+        />
       </div>
     </div>
   );
@@ -106,6 +176,7 @@ interface ThreadWelcomeProps {
   ) => void;
   composer: React.ReactNode;
   searchEnabled: boolean;
+  setChatStarted: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export const ThreadWelcome: FC<ThreadWelcomeProps> = (
@@ -130,6 +201,7 @@ export const ThreadWelcome: FC<ThreadWelcomeProps> = (
               composer={props.composer}
               handleQuickStart={props.handleQuickStart}
               searchEnabled={props.searchEnabled}
+              setChatStarted={props.setChatStarted}
             />
           </div>
         </div>
