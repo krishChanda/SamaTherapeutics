@@ -1,3 +1,4 @@
+/*
 import React from 'react';
 import { BaseMessage } from '@langchain/core/messages';
 
@@ -65,3 +66,4 @@ const ThreadMessage: React.FC<ThreadMessageProps> = ({
 };
 
 export default ThreadMessage;
+*/

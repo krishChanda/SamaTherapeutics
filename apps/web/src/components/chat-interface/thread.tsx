@@ -246,16 +246,6 @@ export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
        content: `go to slide ${currentSlide}`,
        id: messageId
      };
-    /*
-     // Create a HumanMessage for UI purposes
-     const humanMessageForUI = new HumanMessage({
-       content: `go to slide ${currentSlide}`,
-       id: messageId,
-     });
-    
-     // Update messages state with the user message
-     setMessages(prevMessages => [...prevMessages, humanMessageForUI]);
-    */
      console.log("🔍 Stream message called with slide:", currentSlide);
     
      // Get slide content and context
@@ -285,8 +275,6 @@ export const Thread: FC<ThreadProps> = (props: ThreadProps) => {
    }
  }, [currentSlide, isPresentationMode, lastProcessedSlide, setMessages, streamMessage, getQuestionsForSlide]);
 
- // Update this section in thread.tsx where it processes messages
-// Find the useEffect that watches for messages that might indicate question requests
 
 // Watch for messages that might indicate question requests or contain unwanted content
 useEffect(() => {
@@ -325,7 +313,6 @@ useEffect(() => {
           }
         }
         
-        // Also remove "I've outlined" responses for direct answers
         if (content.includes("I've outlined") || content.includes("I outlined")) {
           // Create cleaned content without the "I've outlined" phrase
           const cleanedContent = content
@@ -347,7 +334,6 @@ useEffect(() => {
           }
         }
         
-        // FIXED: Check for the question flag in additional_kwargs instead of HTML comment
         if (additionalKwargs.showQuestion === true) {
           console.log("🔍 Question flag found in message metadata");
           setShowQuestion(true);
