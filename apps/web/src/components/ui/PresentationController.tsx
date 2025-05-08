@@ -11,7 +11,8 @@ interface PresentationControllerProps {
   exitPresentation: () => void;
 }
 
-const PresentationController: React.FC<PresentationControllerProps> = ({ exitPresentation }) => {
+  // sets initial states for controller (first load, current slide, total slides, etc.)
+  const PresentationController: React.FC<PresentationControllerProps> = ({ exitPresentation }) => {
   const [currentSlide, setCurrentSlide] = useState(1);
   const [totalSlides, setTotalSlides] = useState(7);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
@@ -20,10 +21,10 @@ const PresentationController: React.FC<PresentationControllerProps> = ({ exitPre
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   
-  // Use the MultipleChoice context
+  // pull questions from context based on current slide
   const { getQuestionsBySlide, handleAnswerSelected } = useMultipleChoice();
 
-  // Listen for slide changes from the iframe
+  // checking for slide changes and updating current slide state
   useEffect(() => {
     const handleMessageFromIframe = (event: MessageEvent) => {
       if (event.data && event.data.type === 'slideChanged') {
@@ -38,13 +39,13 @@ const PresentationController: React.FC<PresentationControllerProps> = ({ exitPre
     };
   }, []);
 
-  // Update current question when slide changes - using the context's getQuestionsBySlide
+  // uses current slide value to get question for specific slide
   useEffect(() => {
     const slideQuestions = getQuestionsBySlide(currentSlide);
     setCurrentQuestion(slideQuestions.length > 0 ? slideQuestions[0] : null);
   }, [currentSlide, getQuestionsBySlide]);
 
-  // Initialize presentation on first load
+  // starts presentation and sends initial message to AI to begin
   useEffect(() => {
     if (isFirstLoad) {
       console.log("🔍 Initializing presentation");
@@ -54,21 +55,21 @@ const PresentationController: React.FC<PresentationControllerProps> = ({ exitPre
         id: uuidv4(),
       });
       
-      // Update messages
-      setMessages(prevMessages => [...prevMessages, startMessage]);
+      // handles message history and appends most recently sent message to it
+      setMessages(prevMessages => [...prevMessages, startMessage]); 
       
-      // Use streamMessage to trigger the presentation mode
+      // initiates presentation mode with default settings
       streamMessage({
-        messages: [startMessage],
-        presentationMode: true,
-        presentationSlide: 1
+        messages: [startMessage], // sends starting message to AI
+        presentationMode: true, // sets presentation mode to true
+        presentationSlide: 1 // sets to first slide as default 
       } as any);
       
       setIsFirstLoad(false);
     }
   }, [isFirstLoad, streamMessage, setMessages]);
 
-  // Handle slide changes to update the AI
+  // handles non-first load slide updates, sends message to AI to move to next slide
   useEffect(() => {
     if (!isFirstLoad) {
       console.log("🔍 Slide changed to:", currentSlide);
@@ -78,10 +79,10 @@ const PresentationController: React.FC<PresentationControllerProps> = ({ exitPre
         id: uuidv4(),
       });
       
-      // Update messages
+      // update message history
       setMessages(prevMessages => [...prevMessages, slideChangeMessage]);
       
-      // Use streamMessage to trigger the presentation mode with the new slide
+      // updates presentation mode to the new slide number
       streamMessage({
         messages: [slideChangeMessage],
         presentationMode: true,
@@ -90,24 +91,24 @@ const PresentationController: React.FC<PresentationControllerProps> = ({ exitPre
     }
   }, [currentSlide, streamMessage, setMessages, isFirstLoad]);
 
-  // Handle changing slides
+  // moves slides forward and backwards
   const navigateToSlide = (direction: 'next' | 'previous') => {
-    if (direction === 'next' && currentSlide < totalSlides) {
-      const newSlide = currentSlide + 1;
+    if (direction === 'next' && currentSlide < totalSlides) { // if next slide is available
+      const newSlide = currentSlide + 1; // update slide number
       setCurrentSlide(newSlide);
       
-      // Send message to iframe to change slide
+      // send message to iframe to update slide number
       if (iframeRef.current && iframeRef.current.contentWindow) {
         iframeRef.current.contentWindow.postMessage({
           type: 'goToSlide',
           slideNumber: newSlide
         }, '*');
       }
-    } else if (direction === 'previous' && currentSlide > 1) {
+    } else if (direction === 'previous' && currentSlide > 1) { // if previous slide is available
       const newSlide = currentSlide - 1;
       setCurrentSlide(newSlide);
       
-      // Send message to iframe to change slide
+      // send message to iframe to update slide number
       if (iframeRef.current && iframeRef.current.contentWindow) {
         iframeRef.current.contentWindow.postMessage({
           type: 'goToSlide',
@@ -119,12 +120,9 @@ const PresentationController: React.FC<PresentationControllerProps> = ({ exitPre
 
   return (
     <div className="h-full w-full flex flex-col">
-      {/* Header with centered title and smaller exit button */}
       <div className="flex items-center justify-center p-3 border-b bg-white relative h-14">
-        {/* Centered title */}
         <h1 className="flex items-center justify-center text-xl font-semibold text-center">Presentation on Carvedilol</h1>
-        
-        {/* Exit button positioned absolutely */}
+        {/* exit presentation button frontend */}
         <div className="absolute right-4">
           <button
             className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-1 px-3 rounded-md shadow-sm text-sm"
@@ -135,9 +133,7 @@ const PresentationController: React.FC<PresentationControllerProps> = ({ exitPre
         </div>
       </div>
       
-      {/* Main content layout with slide at top and question at bottom */}
       <div className="flex-1 flex flex-col bg-white">
-        {/* Slide presentation takes most of the space */}
         <div className="flex-1 overflow-hidden">
           <iframe 
             ref={iframeRef}
@@ -147,7 +143,7 @@ const PresentationController: React.FC<PresentationControllerProps> = ({ exitPre
           />
         </div>
         
-        {/* Question panel fixed at the bottom if available */}
+        {/* question frontend */}
         {currentQuestion && (
           <div className="border-t border-gray-200">
             <div className="bg-gray-50 py-2 px-4 text-center font-semibold text-lg">
@@ -160,25 +156,6 @@ const PresentationController: React.FC<PresentationControllerProps> = ({ exitPre
             />
           </div>
         )}
-      </div>
-      
-      {/* Navigation controls */}
-      <div className="flex justify-between p-2 bg-gray-100">
-        <button 
-          className="px-4 py-2 bg-blue-500 text-white rounded disabled:bg-gray-300"
-          onClick={() => navigateToSlide('previous')}
-          disabled={currentSlide <= 1}
-        >
-          Previous
-        </button>
-        <span className="self-center">Page {currentSlide} of {totalSlides}</span>
-        <button 
-          className="px-4 py-2 bg-blue-500 text-white rounded disabled:bg-gray-300"
-          onClick={() => navigateToSlide('next')}
-          disabled={currentSlide >= totalSlides}
-        >
-          Next
-        </button>
       </div>
     </div>
   );
