@@ -2,7 +2,6 @@
 // PresentationMode.tsx
 import React, { useEffect, useState, useCallback } from 'react';
 import { usePresentation } from '@/contexts/PresentationContext';
-import SlideDeck from './slidedeck';
 import { useGraphContext } from '@/contexts/GraphContext';
 import { HumanMessage } from '@langchain/core/messages';
 import MultipleChoicePanel from './MultipleChoicePanel';

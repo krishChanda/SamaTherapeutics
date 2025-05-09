@@ -14,7 +14,7 @@ interface PresentationControllerProps {
   // sets initial states for controller (first load, current slide, total slides, etc.)
   const PresentationController: React.FC<PresentationControllerProps> = ({ exitPresentation }) => {
   const [currentSlide, setCurrentSlide] = useState(1);
-  const [totalSlides, setTotalSlides] = useState(7);
+  const [totalSlides] = useState(7);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
   const { graphData } = useGraphContext();
   const { streamMessage, setMessages } = graphData;
@@ -48,7 +48,6 @@ interface PresentationControllerProps {
   // starts presentation and sends initial message to AI to begin
   useEffect(() => {
     if (isFirstLoad) {
-      console.log("🔍 Initializing presentation");
       // Create a message to start the presentation
       const startMessage = new HumanMessage({
         content: "Start the carvedilol presentation",
@@ -72,8 +71,6 @@ interface PresentationControllerProps {
   // handles non-first load slide updates, sends message to AI to move to next slide
   useEffect(() => {
     if (!isFirstLoad) {
-      console.log("🔍 Slide changed to:", currentSlide);
-      // Create a message to request the new slide
       const slideChangeMessage = new HumanMessage({
         content: `Continue to slide ${currentSlide}`,
         id: uuidv4(),

@@ -52,8 +52,7 @@ const MultipleChoicePanel: React.FC<MultipleChoicePanelProps> = ({
   const handleChoiceClick = (choiceId: string, isCorrect: boolean) => {
     // Only allow selection if not already answered
     if (!showFeedback) {
-      console.log(`Selected: ${choiceId}, isCorrect: ${isCorrect}`); // Debug log
-      
+    
       setSelectedChoice(choiceId);
       setShowFeedback(true);
       onAnswerSelected(choiceId, isCorrect);

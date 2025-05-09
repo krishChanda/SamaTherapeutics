@@ -211,14 +211,12 @@ export function GraphProvider({ children }: { children: ReactNode }) {
 
   // Attempt to load the thread if an ID is present in query params.
   useEffect(() => {
-    console.log("Get thread ID defined!!");
     if (
       typeof window === "undefined" ||
       !userData.user ||
       threadData.createThreadLoading ||
       !threadData.threadId
     ) {
-      console.log("Returning early");
       return;
     }
 
@@ -367,8 +365,6 @@ export function GraphProvider({ children }: { children: ReactNode }) {
 
       const forcePresentationUIUpdate = (message: any) => {
         if (!message) return;
-        
-        console.log("🔍 Forcing presentation UI update for message:", message.id);
         
         // Add the message to the UI immediately
         setMessages(prev => {
@@ -532,9 +528,6 @@ export function GraphProvider({ children }: { children: ReactNode }) {
                 continue;
               }
               if (!artifact) {
-                console.error(
-                  "No artifacts found when updating highlighted markdown..."
-                );
                 continue;
               }
               if (!highlightedText) {
@@ -751,9 +744,6 @@ export function GraphProvider({ children }: { children: ReactNode }) {
 
                 let content = newArtifactContent;
                 if (!rewriteArtifactMeta) {
-                  console.error(
-                    "No rewrite artifact meta found when updating artifact"
-                  );
                   return prev;
                 }
                 if (rewriteArtifactMeta.type === "code") {
@@ -868,8 +858,6 @@ export function GraphProvider({ children }: { children: ReactNode }) {
           }
 
           if (event === "on_chain_end" && langgraphNode === "presentationModeHandler") {
-            console.log("🔍 Presentation mode response received:", nodeOutput);
-            
             // Extract the message from nodeOutput
             if (nodeOutput && nodeOutput.messages && nodeOutput.messages.length > 0) {
               const presentationMessage = nodeOutput.messages[0];
@@ -877,9 +865,6 @@ export function GraphProvider({ children }: { children: ReactNode }) {
               // Force a UI update by adding the message directly to the messages state
               setFirstTokenReceived(true);
               setMessages(prevMessages => [...prevMessages, presentationMessage]);
-              
-              // Log success
-              console.log("🔍 Presentation message added to UI:", presentationMessage.id);
             }
           }
 
@@ -930,9 +915,6 @@ export function GraphProvider({ children }: { children: ReactNode }) {
 
                 let content = fullNewArtifactContent;
                 if (!rewriteArtifactMeta) {
-                  console.error(
-                    "No rewrite artifact meta found when updating artifact"
-                  );
                   return prev;
                 }
                 if (rewriteArtifactMeta.type === "code") {
@@ -964,9 +946,6 @@ export function GraphProvider({ children }: { children: ReactNode }) {
                 continue;
               }
               if (!artifact) {
-                console.error(
-                  "No artifacts found when updating highlighted markdown..."
-                );
                 continue;
               }
               if (!highlightedText) {
@@ -1245,39 +1224,6 @@ export function GraphProvider({ children }: { children: ReactNode }) {
               });
             }
 
-            if (langgraphNode === "presentationModeHandler") {
-              console.log("🔍 Presentation mode chain ended:", nodeOutput);
-              
-              // Check if we received presentation-specific data
-              if (nodeOutput && nodeOutput._messages && nodeOutput._messages.length > 0) {
-                // Add a type annotation for the presentation messages
-                const presentationMessages = nodeOutput._messages as BaseMessage[];
-                
-                // Update messages and force a UI refresh
-                setMessages(prevMessages => {
-                  // Create a new array to ensure React detects the change
-                  const newMessages = [...prevMessages];
-                  
-                  // Add all new presentation messages
-                  presentationMessages.forEach((msg: BaseMessage) => {
-                    // Check if this message is already in the list
-                    const existingMsgIndex = newMessages.findIndex(m => m.id === msg.id);
-                    if (existingMsgIndex >= 0) {
-                      // Replace existing message
-                      newMessages[existingMsgIndex] = msg;
-                    } else {
-                      // Add new message
-                      newMessages.push(msg);
-                    }
-                  });
-                  
-                  return newMessages;
-                });
-                
-                console.log("🔍 Presentation messages processed, UI should update");
-              }
-            }
-
             if (
               langgraphNode === "generateArtifact" &&
               !generateArtifactToolCallStr &&
@@ -1300,12 +1246,7 @@ export function GraphProvider({ children }: { children: ReactNode }) {
             }
           }
         } catch (e: any) {
-          console.error(
-            "Failed to parse stream chunk",
-            chunk,
-            "\n\nError:\n",
-            e
-          );
+          console.error("Failed to parse stream chunk:", e);
 
           let errorMessage = "Unknown error. Please try again.";
           if (typeof e === "object" && e?.message) {

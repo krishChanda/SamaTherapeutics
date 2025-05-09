@@ -263,7 +263,7 @@ export function CanvasComponent() {
           </div>
         </div>
       );
-    } else if (isMultipleChoiceMode) {
+    } /*else if (isMultipleChoiceMode) {
       // We're handling quiz within the presentation now, so this should 
       // never be reached, but we'll keep it for backward compatibility
       return (
@@ -285,7 +285,7 @@ export function CanvasComponent() {
           </div>
         </div>
       );
-    } else {
+    } */else {
       return (
         <ArtifactRenderer
           chatCollapsed={chatCollapsed}

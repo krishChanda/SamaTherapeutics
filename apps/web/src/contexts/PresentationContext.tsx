@@ -1,7 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 import { useGraphContext } from '@/contexts/GraphContext';
-import { HumanMessage } from '@langchain/core/messages';
-import { v4 as uuidv4 } from "uuid";
 
 interface QuizQuestion {
   id: string;
@@ -30,14 +28,15 @@ interface PresentationContextProps {
 
 const PresentationContext = createContext<PresentationContextProps | undefined>(undefined);
 
+// base variables for presentation (mode, current slide, total slides)
 export function PresentationProvider({ children }: { children: ReactNode }) {
   const [isPresentationMode, setIsPresentationMode] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(1);
-  const [totalSlides, setTotalSlides] = useState(7); // Total slides in the Carvedilol presentation
+  const [totalSlides] = useState(7); 
   const { graphData } = useGraphContext();
   const { streamMessage, setMessages, messages } = graphData;
 
-  // Store slide content for reference
+  // slide content for each slide (key assigned to slide number)
   const SLIDES_CONTENT: { [key: number]: string } = {
     1: "Thank you for joining me for a discussion on advances in severe heart failure.\n\nTo navigate through the presentation, you can say:\n• **\"Next slide\"** to move forward\n• **\"Previous slide\"** to go back\n• **\"Go to slide [number]\"** to jump to a specific slide",
     2: "Heart failure remains a significant and growing burden for patients and the healthcare system. Despite advances, more than 6.7 million Americans are diagnosed yearly, and the individual lifetime risk has increased to 1 in 4. Heart failure is responsible for more than 425,000 deaths and 5 million hospitalizations each year. Proper treatment with evidence based regimens is critical to provide patients the best possible outcome.",
@@ -48,9 +47,8 @@ export function PresentationProvider({ children }: { children: ReactNode }) {
     7: "The starting dose for carvedilol in heart failure is 3.125 mg twice daily. The dose should then be increased to 6.25, 12.5 and 25 mg twice daily over intervals of at least 2 weeks. Lower doses should be maintained if higher doses are not tolerated. Patients should be instructed to take carvedilol with food."
   };
 
-  // Quiz questions for the presentation
+  // all questions for the presentation
   const [quizQuestions] = useState<QuizQuestion[]>([
-    // Slide 2 – Heart Failure Burden
     {
       id: '1',
       slideNumber: 2,
@@ -84,8 +82,6 @@ export function PresentationProvider({ children }: { children: ReactNode }) {
         { id: 'D', text: '6.5 million', isCorrect: false },
       ]
     },
-    
-    // Slide 3 – Mechanism & Indication of Carvedilol
     {
       id: '4',
       slideNumber: 3,
@@ -108,8 +104,6 @@ export function PresentationProvider({ children }: { children: ReactNode }) {
         { id: 'D', text: 'Arrhythmias and angina', isCorrect: false },
       ]
     },
-    
-    // Slide 4 – COPERNICUS Trial Results
     {
       id: '6',
       slideNumber: 4,
@@ -143,8 +137,6 @@ export function PresentationProvider({ children }: { children: ReactNode }) {
         { id: 'D', text: 'Stroke incidence', isCorrect: false },
       ]
     },
-    
-    // Slide 5 – Subgroup Effects
     {
       id: '9',
       slideNumber: 5,
@@ -156,8 +148,6 @@ export function PresentationProvider({ children }: { children: ReactNode }) {
         { id: 'D', text: 'Limited to patients under 65', isCorrect: false },
       ]
     },
-    
-    // Slide 6 – Safety Profile
     {
       id: '10',
       slideNumber: 6,
@@ -180,8 +170,6 @@ export function PresentationProvider({ children }: { children: ReactNode }) {
         { id: 'D', text: 'Bradycardia', isCorrect: false },
       ]
     },
-    
-    // Slide 7 – Dosing
     {
       id: '12',
       slideNumber: 7,
@@ -216,18 +204,30 @@ export function PresentationProvider({ children }: { children: ReactNode }) {
       ]
     },
   ]);
+  
 
-  // Get questions for a specific slide
+ // pull question for current slide
   const getQuestionsForSlide = (slideNumber: number) => {
     return quizQuestions.filter(q => q.slideNumber === slideNumber);
   };
 
-  // Helper function to get slide content
+// get content for current slide
   const getSlideContent = (slideNumber: number): string => {
     return SLIDES_CONTENT[slideNumber] || "Slide content not available.";
   };
 
-  // Listen for presentation mode changes from other components
+  // start presentation and update event listener
+  const startPresentation = () => {
+    setIsPresentationMode(true);
+    setCurrentSlide(1);
+    
+    window.dispatchEvent(new CustomEvent('presentationModeChange', { 
+      detail: { isActive: true } 
+    }));
+    
+  };
+
+  // exit presentation based on event listener
   React.useEffect(() => {
     const handleExitPresentation = () => {
       exitPresentation();
@@ -240,30 +240,16 @@ export function PresentationProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Start the presentation
-  const startPresentation = () => {
-    console.log("🔍 Starting presentation");
-    setIsPresentationMode(true);
-    setCurrentSlide(1);
-    
-    // Dispatch event to notify other components
-    window.dispatchEvent(new CustomEvent('presentationModeChange', { 
-      detail: { isActive: true } 
-    }));
-    
-  };
-
-  // Exit the presentation
+  // exit presentation and update event listener
   const exitPresentation = () => {
     setIsPresentationMode(false);
     
-    // Notify other components that presentation mode has ended
     window.dispatchEvent(new CustomEvent('presentationModeChange', { 
       detail: { isActive: false } 
     }));
   };
 
-  // Navigate to the next slide
+  // go to next slide
   const nextSlide = () => {
     if (currentSlide < totalSlides) {
       const newSlideNumber = currentSlide + 1;
@@ -271,7 +257,7 @@ export function PresentationProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Navigate to the previous slide
+  // go to previous slide
   const previousSlide = () => {
     if (currentSlide > 1) {
       const newSlideNumber = currentSlide - 1;
@@ -279,13 +265,12 @@ export function PresentationProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Go to a specific slide
+  // jump to specific slide
   const goToSlide = (slideNumber: number) => {
-    console.log("🔍 Going to slide:", slideNumber);
     if (slideNumber >= 1 && slideNumber <= totalSlides) {
       setCurrentSlide(slideNumber);
       
-      // Send message to update the slide in the iframe
+      // update slide content in the iframe
       const iframe = document.querySelector('.presentation-iframe') as HTMLIFrameElement;
       if (iframe && iframe.contentWindow) {
         iframe.contentWindow.postMessage({
@@ -318,7 +303,7 @@ export function PresentationProvider({ children }: { children: ReactNode }) {
 export const usePresentation = () => {
   const context = useContext(PresentationContext);
   if (context === undefined) {
-    throw new Error('usePresentation must be used within a PresentationProvider');
+    throw new Error('usePresentation must be used within a PresentationProvider'); // if key presentation information is missing
   }
   return context;
 };
