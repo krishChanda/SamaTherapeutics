@@ -116,7 +116,7 @@ function createUnifiedPrompt(
   slideNumber: number,
   userContent: string = '',
   includeOptions: {
-    includeRiskContext?: boolean;
+    includeRiskContext?: boolean; //CHECK IF IT WORKS WITHOUT THIS IN MORNING
     includeFullContext?: boolean;
   } = {}
 ): string {
@@ -192,9 +192,8 @@ Create a brief response for when the user's input doesn't clearly indicate what 
 The response should:
 1. Politely acknowledge their message
 2. Remind them they're in a presentation about Carvedilol and heart failure
-3. End with EXACTLY ONE prompt based on the slide number:
-   - For slide 1 (Introduction): "Would you like to continue to the next slide?"
-   - For all other slides: "Would you like to test your knowledge with a question about this slide?"
+3. End with EXACTLY ONE prompt:
+    "Would you like to continue to the next slide?"
 4. Do not include multiple prompts or repeat the prompt.
 5. Be professional and concise
 
