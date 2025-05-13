@@ -1,3 +1,54 @@
+# AI-Agents for Neuropsychiatric Assessment
+### Manasi Vipat, Krish Chanda, Saipravallika Akula, Tanvi Deshpande
+
+## Overview
+An application that combines conversational AI with presentation viewing to enable users to interact and educate themselves through AI-led presentations and generated questions. Unlike conventional presentation tools that can only display static content, or chatbots that have a general, less precise scope, this application combines detailed slide presentations with an AI-powered experience that allows users to learn at a higher, more personalized level. Through analysis of a given slide deck, this canvas turns a simple presentation into a more engaging educational experience that will be used especially in the healthcare industry to deliver life-saving content to professionals.
+
+## Contributions
+All coding was done through a singular account/laptop due to OS incompatibilities, but all members contributed progress as stated below. This pertains only to code contributions and not external work on documentation, meeting facilitation, etc.: 
+
+### Manasi Vipat
+- Developed preliminary implementation for chatbot-based navigation to presentation mode  
+- Merged code across different branches  
+- Created initial prototypes for design and page structure  
+- Removed redundancies in interface (i.e. page indicators)  
+- Updated branding, color across interaction points within the project  
+- Removed non-functional elements across the site  
+
+### Krish Chanda
+- Assisted in the basic setup and configuration of the project’s backend (API keys, authentication, etc)  
+- Developed Presentation Mode with chatbot interactivity  
+- Enabled dynamic chatbot-slide interaction, ensuring context awareness of slide content  
+- Configured system prompts to guide chatbot responses within presentation flow  
+- Integrated backend support to allow chatbot to navigate slides based on user input  
+
+### Saipravallika Akula
+- Contributed to backend development and logic for Multiple Choice Mode  
+- Implemented selection of answer choices and validation logic  
+- Enabled contextual feedback from chatbot based on selected answer and slide content  
+- Built frontend UI for multiple choice interaction (color feedback and messages)  
+- Developed keyword-based detection in chat to trigger multiple choice mode  
+
+### Tanvi Deshpande
+- Focused on frontend interface design and improvements  
+- Helped create initial prototypes to guide design direction  
+- Updated UI to align with Sama Therapeutics branding  
+- Cleaned up layout and improved visual consistency across pages  
+
+## Setup Locally
+
+### macOS
+Follow the standard setup process for running the Sama Therapeutics application on macOS.
+
+### Windows 10/11
+This project is unfortunately not yet available for native Windows environments. To run the application, we recommend dual-booting your system with Ubuntu.
+
+Here are some helpful resources to guide you through the process:
+
+- [How to Install Ubuntu 24.04 Latest Version on Windows 10 (Dual Boot)](https://example.com/dual-boot-windows10-ubuntu)  
+- 🖥️ [How to Dual Boot Ubuntu 24.04.1 LTS with Windows 11 | Step-by-Step Guide](https://example.com/dual-boot-windows11-ubuntu)
+
+
 # Open Canvas
 
 [TRY IT OUT HERE](https://opencanvas.langchain.com/)
